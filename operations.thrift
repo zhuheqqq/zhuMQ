@@ -33,7 +33,7 @@ service Server_Operations {
     PushResponse    push(1: PushRequest req)
     PullResponse    pull(1: PullRequest req)
     InfoResponse    info(1: InfoRequest req)
-    SubResponse  Sub(1:  SubRequest  req)
+    SubResponse     Sub(1:  SubRequest  req)
 }
 
 struct PubRequest {
