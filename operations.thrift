@@ -33,6 +33,7 @@ service Server_Operations {
     PushResponse    push(1: PushRequest req)
     PullResponse    pull(1: PullRequest req)
     InfoResponse    info(1: InfoRequest req)
+    SubResponse  Sub(1:  SubRequest  req)
 }
 
 struct PubRequest {
@@ -50,6 +51,18 @@ struct PingPongRequest {
 struct PingPongResponse {
     1: bool pong
 }
+
+struct SubRequest {
+    1: string consumer
+    2: string topic
+    3: string key
+    4: i8 option
+}
+
+struct SubResponse {
+    1: bool ret
+}
+
 
 service Client_Operations {
     PubResponse pub(1: PubRequest req)

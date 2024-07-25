@@ -36,12 +36,27 @@ func (s *RPCServer) Start(opts []server.Option) error {
 
 func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.PushResponse, err error) {
 	fmt.Println(req)
-	return &api.PushResponse{
-		Ret: true,
-	}, nil
+	err = s.server.PushHandle(push{
+		producer: req.Producer,
+		topic:    req.Topic,
+		key:      req.Key,
+		message:  req.Message,
+	})
+	if err == nil {
+		return &api.PushResponse{Ret: false}, nil
+	}
+	return &api.PushResponse{Ret: false}, err
 }
 
 func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.PullResponse, err error) {
+	ret, err := s.server.PullHandle(pull{
+		consumer: req.Consumer,
+		topic:    req.Topic,
+		key:      req.Key,
+	})
+	if err == nil {
+		return &api.PullResponse{Message: ret.message}, nil
+	}
 	return &api.PullResponse{
 		Message: "111",
 	}, nil
@@ -56,4 +71,18 @@ func (s *RPCServer) Info(ctx context.Context, req *api.InfoRequest) (resp *api.I
 	}
 
 	return &api.InfoResponse{Ret: false}, err
+}
+
+func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
+	err = s.server.SubHandle(sub{
+		consumer: req.Consumer,
+		topic:    req.Topic,
+		key:      req.Key,
+		option:   req.Option,
+	})
+
+	if err == nil {
+		return &api.SubResponse{Ret: true}, nil
+	}
+	return &api.SubResponse{Ret: false}, err
 }
