@@ -34,6 +34,7 @@ func (s *RPCServer) Start(opts []server.Option) error {
 	return nil
 }
 
+// 处理推送请求
 func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.PushResponse, err error) {
 	fmt.Println(req)
 	err = s.server.PushHandle(push{
@@ -48,6 +49,7 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 	return &api.PushResponse{Ret: false}, err
 }
 
+// 处理拉取请求
 func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.PullResponse, err error) {
 	ret, err := s.server.PullHandle(pull{
 		consumer: req.Consumer,
@@ -58,7 +60,7 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 		return &api.PullResponse{Message: ret.message}, nil
 	}
 	return &api.PullResponse{
-		Message: "111",
+		Message: "error", //有错误默认返回error
 	}, nil
 }
 
@@ -73,6 +75,7 @@ func (s *RPCServer) Info(ctx context.Context, req *api.InfoRequest) (resp *api.I
 	return &api.InfoResponse{Ret: false}, err
 }
 
+// 处理订阅请求
 func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
 	err = s.server.SubHandle(sub{
 		consumer: req.Consumer,

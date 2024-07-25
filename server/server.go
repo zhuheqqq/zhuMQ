@@ -6,6 +6,7 @@ import (
 	"zhuMQ/kitex_gen/api/client_operations"
 )
 
+// 一个topic包含多个消息分区
 type Server struct {
 	topics map[string]*Topic
 	//groups map[string]Group
@@ -37,6 +38,7 @@ type sub struct {
 	option   int8
 }
 
+// 初始化server实例
 func (s *Server) make() {
 	s.topics = make(map[string]*Topic)
 	s.consumers = make(map[string]*Client)
@@ -45,6 +47,7 @@ func (s *Server) make() {
 	s.StartRelease()
 }
 
+// 启动消息发布
 func (s *Server) StartRelease() {
 	s.mu.Lock()
 	for _, topic := range s.topics {
@@ -70,6 +73,7 @@ func (s *Server) InfoHandle(ipport string) error {
 	return err
 }
 
+// 检查消费者状态
 func (s *Server) CheckConsumer(client *Client) {
 	shutdown := client.CheckConsumer()
 	if shutdown {
@@ -95,6 +99,7 @@ func (s *Server) SubHandle(req sub) error {
 	return nil
 }
 
+// 向主题添加消息
 func (s *Server) addMessage(topic *Topic, req push) error {
 	part, ok := topic.Parts[req.key]
 	if !ok {

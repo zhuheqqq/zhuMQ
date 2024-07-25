@@ -13,8 +13,8 @@ const (
 
 type Topic struct {
 	rmu     sync.RWMutex
-	Parts   map[string]*Partition
-	subList map[string]*SubScription
+	Parts   map[string]*Partition    //储存该主题下的所有分区
+	subList map[string]*SubScription //存储该主题所有订阅
 }
 
 type Partition struct {
@@ -27,7 +27,7 @@ type Partition struct {
 type SubScription struct {
 	rmu              sync.RWMutex
 	topic_name       string
-	option           int8
+	option           int8 //订阅选项
 	consumer_to_part map[string]string
 	groups           []*Group
 }
