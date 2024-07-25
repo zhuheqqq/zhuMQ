@@ -6,12 +6,12 @@ import (
 	"github.com/cloudwego/kitex/server"
 	"net"
 	"zhuMQ/kitex_gen/api"
-	"zhuMQ/kitex_gen/api/client_operations"
 	ser "zhuMQ/kitex_gen/api/client_operations"
+	"zhuMQ/kitex_gen/api/server_operations"
 )
 
 type Consumer struct {
-	cli client_operations.Client
+	Cli server_operations.Client
 }
 
 func (c *Consumer) Pub(ctx context.Context, req *api.PubRequest) (resp *api.PubResponse, err error) {
@@ -25,7 +25,7 @@ func (c *Consumer) Pingpong(ctx context.Context, req *api.PingPongRequest) (resp
 	return &api.PingPongResponse{Pong: true}, nil
 }
 
-func (c *Consumer) start_server(port string) {
+func (c *Consumer) Start_server(port string) {
 	addr, _ := net.ResolveTCPAddr("tcp", port)
 	var opts []server.Option
 	opts = append(opts, server.WithServiceAddr(addr))
