@@ -1,0 +1,38 @@
+主要描述 Broker、Topic、Partition、client（消费者）、consumer group（消费组）以及他们之间的关系
+
+### Broker
+一个 Broker 就是一个服务器，所隔服务器组成一个集群。一个 Broker 中有多个 Topic,broker采用map[string]topic的方式来存储各个topic
+
+### Topic
+topic 表示一个主题的消息队列，正常这里需要维护一个队列来存储消息，但是为了支持水平扩展集群，将一个 topic 再次分片成更小的 partition（每个 partition 可以在不同服务器上运行，实现消息队列系统的水平扩展），每个 partition 中再维持一个队列，这样就会导致 topic 中的消息无法保证顺序性，而每个partition 中可以保证顺序性
+
+### Partition
+为了支持水平扩展集群提高 mq 性能，将 topic 再次分片管理，首先维持一个队列存储消息（后期增加消息的持久化，这里暂时作为内存消息队列）
+持久化是将消息顺序读写到磁盘（文件）中，这里当消息接收到后就将数据写入磁盘（文件），通过将信息按块（chunk）读出放入内存队列，可以减少磁盘IO，因为是消费者自己维护一个 offset 来标记位置，所以可以不担心被读出后，又没有被消费导致信息无法被消费者接收到。这里还需要一个细节就是 offset 到这个队列块的转换。以 topic + partition 的方式来命名文件
+
+一个 partition 需要支持的模式如下：
+- 每条消息只消费一次，支持但消费者和多消费者，但消费者即顺序消费消息，多消费者同时消费该 partition消息，但每条消息只消费一次，可以通过增加消费者来提高消费能力
+
+### SubScription
+支持两种消费模式：
+- 点对点：SubScription 中只能有一个消费者组，Topic 中的一条消息只能被一个消费者消费。后续将这个范围扩大，每个 topic 中的一个 partition 只能被一个消费者消费。当有消费者选择这个模式时，将判断是否有一个group,若无则创建一个，若有则加入
+- 订阅发布：SubScription 中可以有多个消费者组，每个消费者组中只有一个消费组
+
+每个 Topic 都会可能有这两种模式，所以每个 Topic 将拥有两个 SubScription ，将此范围扩大，让每个 Partition 拥有两个 SubScription,分别支持这两种方式
+
+### 消费者组
+- consumer group 下可以有一个或多个 consumer instance,consumer instance 可以是一个进程或线程
+- group.id 是一个字符串，唯一标识一个consumer group
+- consumer group 下订阅的 topic 下的每个分区只能分配给某个 group 下的一个 consumer（当然该分区还可以分配给其他 group ）
+理想状态是消费者实例的数量应当与消费者组订阅主题的分区总数成一定比例
+
+#### 同组：同组内的消费者分为 只订阅一个 topic 和 订阅了多个 topic**
+**点对点模式**
+我们认为同一组内的消费者订阅的 topic 具有类似的处理逻辑，放在同一组提高消费能力;需要对组内消费者进行合理分配
+
+**理想状态：100个 consumer 和 20个 topic,那么每个 topic 分配5个 consumer**
+
+#### 不同组
+**发布订阅模式**
+不同组是为了获得类似广播效果，不同组订阅相同的topic是为了不同组中的消费者可同时消费topic中的一条消息
+**理想状态：若多个消费者组订阅了2个topic，则每个消费者组内有两个消费者；组内两个消费者消费（订阅）不同topic的消息。（可能不需要平均分配机制，需手动分配）**
