@@ -89,3 +89,18 @@ func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.Sub
 	}
 	return &api.SubResponse{Ret: false}, err
 }
+
+func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (resp *api.InfoGetResponse, err error) {
+	err = s.server.StartGet(startget{
+		cli_name:   req.CliName,
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+		offset:     req.offset,
+	})
+	if err == nil {
+		return &api.InfoGetResponse{
+			Ret: true,
+		}, nil
+	}
+	return &api.InfoGetResponse{Ret: false}, err
+}

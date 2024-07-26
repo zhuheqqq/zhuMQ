@@ -20,6 +20,14 @@ type Client struct {
 	consumer client_operations.Client
 	subList  map[string]*SubScription //客户端订阅列表,若consumer关闭则遍历这些订阅并修改
 	state    string                   //客户端状态
+	parts    map[string]Part
+}
+
+type Part struct {
+	topic_name string
+	part_name  string
+	offset     int64
+	buffer     []string
 }
 
 // 一个主题的消费组

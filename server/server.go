@@ -16,14 +16,14 @@ type Server struct {
 }
 
 type push struct {
-	producer int64
+	producer string
 	topic    string
 	key      string
 	message  string
 }
 
 type pull struct {
-	consumer int64
+	consumer string
 	topic    string
 	key      string
 }
@@ -39,6 +39,13 @@ type sub struct {
 	option   int8
 }
 
+type startget struct {
+	cli_name   string
+	topic_name string
+	part_name  string
+	offset     int64
+}
+
 // 初始化server实例
 func (s *Server) make() {
 	s.topics = make(map[string]*Topic)
@@ -46,6 +53,10 @@ func (s *Server) make() {
 	s.mu = sync.Mutex{}
 
 	s.StartRelease()
+}
+
+func (s *Server) StartGet(start startget) error {
+	return err
 }
 
 // 启动消息发布

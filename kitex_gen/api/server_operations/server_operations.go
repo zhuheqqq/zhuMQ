@@ -41,6 +41,13 @@ var serviceMethods = map[string]kitex.MethodInfo{
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
+	"StarttoGet": kitex.NewMethodInfo(
+		starttoGetHandler,
+		newServer_OperationsStarttoGetArgs,
+		newServer_OperationsStarttoGetResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
 }
 
 var (
@@ -54,12 +61,12 @@ func serviceInfo() *kitex.ServiceInfo {
 	return server_OperationsServiceInfo
 }
 
-// for stream clients
+// for stream client
 func serviceInfoForStreamClient() *kitex.ServiceInfo {
 	return server_OperationsServiceInfoForStreamClient
 }
 
-// for clients
+// for client
 func serviceInfoForClient() *kitex.ServiceInfo {
 	return server_OperationsServiceInfoForClient
 }
@@ -179,6 +186,24 @@ func newServer_OperationsSubResult() interface{} {
 	return api.NewServer_OperationsSubResult()
 }
 
+func starttoGetHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsStarttoGetArgs)
+	realResult := result.(*api.Server_OperationsStarttoGetResult)
+	success, err := handler.(api.Server_Operations).StarttoGet(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsStarttoGetArgs() interface{} {
+	return api.NewServer_OperationsStarttoGetArgs()
+}
+
+func newServer_OperationsStarttoGetResult() interface{} {
+	return api.NewServer_OperationsStarttoGetResult()
+}
+
 type kClient struct {
 	c client.Client
 }
@@ -224,6 +249,16 @@ func (p *kClient) Sub(ctx context.Context, req *api.SubRequest) (r *api.SubRespo
 	_args.Req = req
 	var _result api.Server_OperationsSubResult
 	if err = p.c.Call(ctx, "Sub", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (r *api.InfoGetResponse, err error) {
+	var _args api.Server_OperationsStarttoGetArgs
+	_args.Req = req
+	var _result api.Server_OperationsStarttoGetResult
+	if err = p.c.Call(ctx, "StarttoGet", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
