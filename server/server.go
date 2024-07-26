@@ -58,9 +58,9 @@ func (s *Server) StartRelease() {
 }
 
 func (s *Server) InfoHandle(ipport string) error {
-	client, err := client_operations.NewClient("client", client2.WithHostPorts(ipport))
+	client, err := client_operations.NewClient("clients", client2.WithHostPorts(ipport))
 	if err == nil {
-		//s.groups["default"].consumers[ipport] = &client
+		//s.groups["default"].consumers[ipport] = &clients
 		s.mu.Lock()
 		consumer, ok := s.consumers[ipport]
 		if !ok {

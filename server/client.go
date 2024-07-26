@@ -57,14 +57,14 @@ func (g *Group) RecoverClient(cli_name string) error {
 	_, ok := g.consumers[cli_name]
 	if ok {
 		if g.consumers[cli_name] {
-			return errors.New("This client is alive before")
+			return errors.New("This clients is alive before")
 		} else {
 			g.consumers[cli_name] = true
 			return nil
 		}
 		return nil
 	} else {
-		return errors.New("Do not have this client")
+		return errors.New("Do not have this clients")
 	}
 
 }
@@ -75,7 +75,7 @@ func (g *Group) AddClient(cli_name string) error {
 	defer g.rmu.Unlock()
 	_, ok := g.consumers[cli_name]
 	if ok {
-		return errors.New("this client has in this group")
+		return errors.New("this clients has in this group")
 	} else {
 		g.consumers[cli_name] = true
 		return nil
