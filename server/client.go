@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 	"zhuMQ/kitex_gen/api"
@@ -17,8 +18,8 @@ type Client struct {
 	mu       sync.RWMutex
 	name     string
 	consumer client_operations.Client
-	subList  []*SubScription //客户端订阅列表
-	state    string          //客户端状态
+	subList  map[string]*SubScription //客户端订阅列表,若consumer关闭则遍历这些订阅并修改
+	state    string                   //客户端状态
 }
 
 // 一个主题的消费组
@@ -34,7 +35,7 @@ func NewClient(ipport string, con client_operations.Client) *Client {
 		name:     ipport,
 		consumer: con,
 		state:    ALIVE,
-		subList:  make([]*SubScription, 0),
+		subList:  make(map[string]*SubScription),
 	}
 	return client
 }
@@ -49,14 +50,36 @@ func NewGroup(topic_name, cli_name string) *Group {
 	return group
 }
 
-// 将一个消费者添加到组中
-func (g *Group) AddClient(cli_name string) {
+func (g *Group) RecoverClient(cli_name string) error {
 	g.rmu.Lock()
+	defer g.rmu.Unlock()
+
 	_, ok := g.consumers[cli_name]
 	if ok {
-		g.consumers[cli_name] = true
+		if g.consumers[cli_name] {
+			return errors.New("This client is alive before")
+		} else {
+			g.consumers[cli_name] = true
+			return nil
+		}
+		return nil
+	} else {
+		return errors.New("Do not have this client")
 	}
-	g.rmu.Unlock()
+
+}
+
+// 将一个消费者添加到组中
+func (g *Group) AddClient(cli_name string) error {
+	g.rmu.Lock()
+	defer g.rmu.Unlock()
+	_, ok := g.consumers[cli_name]
+	if ok {
+		return errors.New("this client has in this group")
+	} else {
+		g.consumers[cli_name] = true
+		return nil
+	}
 }
 
 // 将消费者标记为不活跃
@@ -97,7 +120,7 @@ func (c *Client) CheckConsumer() bool {
 // 向客户端的订阅列表中添加新的订阅
 func (c *Client) AddSubScription(sub *SubScription) {
 	c.mu.Lock()
-	c.subList = append(c.subList, sub)
+	c.subList[sub.name] = sub
 	c.mu.Unlock()
 }
 
@@ -110,4 +133,10 @@ func (c *Client) Pub(message string) bool {
 		return false
 	}
 	return true
+}
+
+func (c *Client) ReduceSubScription(name string) {
+	c.mu.Lock()
+	delete(c.subList, name)
+	c.mu.Unlock()
 }
