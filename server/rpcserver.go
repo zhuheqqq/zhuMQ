@@ -4,20 +4,17 @@ import (
 	"context"
 	"fmt"
 	"github.com/cloudwego/kitex/server"
-	"sync"
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/server_operations"
 )
 
 type RPCServer struct {
-	logging struct {
-		sync.RWMutex
-		logger      Logger
-		trace       int32
-		debug       int32
-		traceSysAcc int32
-	}
 	server Server
+}
+
+func NewRpcServer() RPCServer {
+	LOGinit()
+	return RPCServer{}
 }
 
 func (s *RPCServer) Start(opts []server.Option) error {
@@ -95,7 +92,7 @@ func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (re
 		cli_name:   req.CliName,
 		topic_name: req.TopicName,
 		part_name:  req.PartName,
-		offset:     req.offset,
+		index:      req.Offset,
 	})
 	if err == nil {
 		return &api.InfoGetResponse{
