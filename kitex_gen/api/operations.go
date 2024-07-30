@@ -3074,7 +3074,9 @@ func (p *SubRequest) Field4DeepEqual(src int8) bool {
 }
 
 type SubResponse struct {
-	Ret bool `thrift:"ret,1" frugal:"1,default,bool" json:"ret"`
+	Ret   bool   `thrift:"ret,1" frugal:"1,default,bool" json:"ret"`
+	Size  int64  `thrift:"size,2" frugal:"2,default,i64" json:"size"`
+	Parts []byte `thrift:"parts,3" frugal:"3,default,binary" json:"parts"`
 }
 
 func NewSubResponse() *SubResponse {
@@ -3087,12 +3089,28 @@ func (p *SubResponse) InitDefault() {
 func (p *SubResponse) GetRet() (v bool) {
 	return p.Ret
 }
+
+func (p *SubResponse) GetSize() (v int64) {
+	return p.Size
+}
+
+func (p *SubResponse) GetParts() (v []byte) {
+	return p.Parts
+}
 func (p *SubResponse) SetRet(val bool) {
 	p.Ret = val
+}
+func (p *SubResponse) SetSize(val int64) {
+	p.Size = val
+}
+func (p *SubResponse) SetParts(val []byte) {
+	p.Parts = val
 }
 
 var fieldIDToName_SubResponse = map[int16]string{
 	1: "ret",
+	2: "size",
+	3: "parts",
 }
 
 func (p *SubResponse) Read(iprot thrift.TProtocol) (err error) {
@@ -3117,6 +3135,22 @@ func (p *SubResponse) Read(iprot thrift.TProtocol) (err error) {
 		case 1:
 			if fieldTypeId == thrift.BOOL {
 				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -3162,6 +3196,28 @@ func (p *SubResponse) ReadField1(iprot thrift.TProtocol) error {
 	p.Ret = _field
 	return nil
 }
+func (p *SubResponse) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Size = _field
+	return nil
+}
+func (p *SubResponse) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field []byte
+	if v, err := iprot.ReadBinary(); err != nil {
+		return err
+	} else {
+		_field = []byte(v)
+	}
+	p.Parts = _field
+	return nil
+}
 
 func (p *SubResponse) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -3171,6 +3227,14 @@ func (p *SubResponse) Write(oprot thrift.TProtocol) (err error) {
 	if p != nil {
 		if err = p.writeField1(oprot); err != nil {
 			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
 			goto WriteFieldError
 		}
 	}
@@ -3208,6 +3272,40 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
+func (p *SubResponse) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("size", thrift.I64, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Size); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *SubResponse) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("parts", thrift.STRING, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBinary([]byte(p.Parts)); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
 func (p *SubResponse) String() string {
 	if p == nil {
 		return "<nil>"
@@ -3225,12 +3323,32 @@ func (p *SubResponse) DeepEqual(ano *SubResponse) bool {
 	if !p.Field1DeepEqual(ano.Ret) {
 		return false
 	}
+	if !p.Field2DeepEqual(ano.Size) {
+		return false
+	}
+	if !p.Field3DeepEqual(ano.Parts) {
+		return false
+	}
 	return true
 }
 
 func (p *SubResponse) Field1DeepEqual(src bool) bool {
 
 	if p.Ret != src {
+		return false
+	}
+	return true
+}
+func (p *SubResponse) Field2DeepEqual(src int64) bool {
+
+	if p.Size != src {
+		return false
+	}
+	return true
+}
+func (p *SubResponse) Field3DeepEqual(src []byte) bool {
+
+	if bytes.Compare(p.Parts, src) != 0 {
 		return false
 	}
 	return true

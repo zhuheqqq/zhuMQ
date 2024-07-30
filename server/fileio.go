@@ -32,10 +32,9 @@ func (f *File) OpenFile() *os.File {
 
 func (f *File) GetIndex(file *os.File) int64 {
 	f.mu.RLock()
-	var index int64
 
 	f.mu.RUnlock()
-	return index
+	return 0
 }
 
 func (f *File) WriteFile(file *os.File, node Key, msg []Message) bool {

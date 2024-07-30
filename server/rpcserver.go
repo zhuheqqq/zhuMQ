@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/cloudwego/kitex/server"
 	"zhuMQ/kitex_gen/api"
@@ -9,26 +10,34 @@ import (
 )
 
 type RPCServer struct {
-	server Server
+	srv    server.Server
+	server *Server
 }
 
 func NewRpcServer() RPCServer {
 	LOGinit()
-	return RPCServer{}
+	return RPCServer{
+		server: NewServer(),
+	}
 }
 
 func (s *RPCServer) Start(opts []server.Option) error {
 	svr := server_operations.NewServer(s, opts...)
 
+	s.srv = svr
 	s.server.make()
 
-	go func() {
-		err := svr.Run()
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
+	DEBUG(dLog, "Broker start rpcserver\n")
+	err := svr.Run()
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	return nil
+}
+
+func (s *RPCServer) ShutDown_server() {
+	s.srv.Stop()
 }
 
 // 处理推送请求
@@ -74,15 +83,21 @@ func (s *RPCServer) Info(ctx context.Context, req *api.InfoRequest) (resp *api.I
 
 // 处理订阅请求
 func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
-	err = s.server.SubHandle(sub{
+	ret, err := s.server.SubHandle(sub{
 		consumer: req.Consumer,
 		topic:    req.Topic,
 		key:      req.Key,
 		option:   req.Option,
 	})
 
+	data_parts, _ := json.Marshal(ret.parts)
+
 	if err == nil {
-		return &api.SubResponse{Ret: true}, nil
+		return &api.SubResponse{
+			Ret:   true,
+			Size:  int64(ret.size),
+			Parts: data_parts,
+		}, nil
 	}
 	return &api.SubResponse{Ret: false}, err
 }

@@ -46,6 +46,13 @@ func NewTopic(req push) *Topic {
 	return topic
 }
 
+func (t *Topic) GetParts() map[string]*Partition {
+	t.rmu.RLock()
+	defer t.rmu.RUnlock()
+
+	return t.Parts
+}
+
 func (t *Topic) GetFile(key string) *File {
 	t.rmu.RLock()
 	defer t.rmu.RUnlock()
@@ -69,9 +76,10 @@ func (t *Topic) addMessage(req push) error {
 	}
 
 	part.mu.Lock()
-	part.addMessage(req)
 
 	part.mu.Unlock()
+
+	part.addMessage(req)
 
 	return nil
 }
@@ -141,7 +149,7 @@ type Partition struct {
 	fd          *os.File
 	key         string
 	file        *File
-	queue       []string
+	queue       []Message
 	index       int64
 	start_index int64
 }
@@ -151,7 +159,7 @@ func NewPartition(req push) (*Partition, *File) {
 	part := &Partition{
 		mu:    sync.RWMutex{},
 		key:   req.key,
-		queue: make([]string, 50),
+		queue: make([]Message, 50),
 	}
 
 	str, _ := os.Getwd()
@@ -165,7 +173,7 @@ func NewPartition(req push) (*Partition, *File) {
 	if err != nil {
 		fmt.Println("create ", str, "failed")
 	}
-	// part.addMessage(req)
+	part.addMessage(req)
 
 	return part, part.file
 }
@@ -180,6 +188,8 @@ func (p *Partition) addMessage(req push) {
 		Part_name:  req.key,
 		Msg:        []byte(req.message),
 	}
+
+	DEBUG(dLog, "part_name %v add message index is %v\n", p.key, p.index)
 
 	p.queue = append(p.queue, msg) // 将新创建的消息对象添加到队列中
 

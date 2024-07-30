@@ -77,13 +77,26 @@ type startget struct {
 	option     int8
 }
 
+type retsub struct {
+	size  int
+	parts []PartKey
+}
+
+func NewServer() *Server {
+	return &Server{
+		// topics: make(map[string]*Topic),
+		// consumers: make(map[string]*Client),
+		mu: sync.RWMutex{},
+	}
+}
+
 // 初始化server实例
 func (s *Server) make() {
 	s.topics = make(map[string]*Topic)
 	s.consumers = make(map[string]*Client)
-	s.mu = sync.RWMutex{}
 
 	name = GetIpport()
+	s.CheckList()
 }
 
 func (s *Server) StartGet(start startget) (err error) {
@@ -133,7 +146,7 @@ func (s *Server) StartGet(start startget) (err error) {
 
 func (s *Server) CheckList() {
 	str, _ := os.Getwd()
-	str += name
+	str += "/" + name
 	ret := CheckFileOrList(str)
 	if !ret {
 		CreateList(str)
@@ -141,9 +154,10 @@ func (s *Server) CheckList() {
 }
 
 func (s *Server) InfoHandle(ipport string) error {
+	DEBUG(dLog, "get consumer's ip_port %v\n", ipport)
 	client, err := client_operations.NewClient("clients", client2.WithHostPorts(ipport))
 	if err == nil {
-		//s.groups["default"].consumers[ipport] = &clients
+		DEBUG(dLog, "connect consumer server successful\n")
 		s.mu.Lock()
 		consumer, ok := s.consumers[ipport]
 		if !ok {
@@ -152,9 +166,11 @@ func (s *Server) InfoHandle(ipport string) error {
 		}
 		go s.CheckConsumer(consumer)
 		s.mu.Unlock()
+
+		DEBUG(dLog, "return resp to consumer\n")
 		return nil
 	}
-	DEBUG(dError, "Connect client %v failed\n", ipport)
+	DEBUG(dError, "Connect client failed\n")
 	return err
 }
 
@@ -184,12 +200,13 @@ func (s *Server) CheckConsumer(client *Client) {
 }
 
 // subscribe订阅
-func (s *Server) SubHandle(req sub) error {
+func (s *Server) SubHandle(req sub) (resp retsub, err error) {
 	s.mu.Lock()
 
+	DEBUG(dLog, "get sub information\n")
 	top, ok := s.topics[req.topic]
 	if !ok {
-		return errors.New("this topic not in this broker")
+		return resp, errors.New("this topic not in this broker")
 	}
 
 	sub, err := top.AddSubScription(req)
@@ -197,8 +214,10 @@ func (s *Server) SubHandle(req sub) error {
 		s.consumers[req.consumer].AddSubScription(sub)
 	}
 
+	resp.parts = GetPartKeyArray(s.topics[req.topic].GetParts())
+	resp.size = len(resp.parts)
 	s.mu.Unlock()
-	return nil
+	return resp, nil
 }
 
 func (s *Server) UnSubHandle(req sub) error {

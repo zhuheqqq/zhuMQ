@@ -36,8 +36,7 @@ func main() {
 		producer.Cli = client
 		ipport = producer.Name
 	case "c":
-		consumer := client3.Consumer{}
-		consumer = client3.Consumer{}
+		consumer := client3.NewConsumer{}
 		go consumer.Start_server(":" + port)
 		consumer.Name = client3.GetIpport() + port
 		consumer.Cli = client
@@ -46,7 +45,7 @@ func main() {
 
 	//send ip and port for brokerserver can pub this clients
 	info := &api.InfoRequest{
-		IpPort: ipport,
+		IpPort: port,
 	}
 	resp, err := client.Info(context.Background(), info)
 	if err != nil {
