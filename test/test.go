@@ -16,7 +16,7 @@ func main() {
 	str, _ := os.Getwd()
 	fmt.Println(str)
 
-	newFile, err = os.Create("/home/yclchuxue/go/src/ClyMQ/test/test1.txt")
+	newFile, err = os.Create("/home/clone/zhuMQ/test/test1.txt")
 	if err != nil {
 		log.Fatal(err)
 	}

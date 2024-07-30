@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"zhuMQ/kitex_gen/api/server_operations"
 
 	"testing"
@@ -13,6 +14,9 @@ import (
 
 // 测试该测试点需要将MQServer启动
 func TestProducerNet(t *testing.T) {
+
+	fmt.Println("Test: Producer net")
+
 	port := ":7778"
 	rpcserver := NewBrokerAndStart(t, port)
 
@@ -39,4 +43,6 @@ func TestProducerNet(t *testing.T) {
 	}
 
 	rpcserver.ShutDown_server()
+
+	fmt.Println("  ... Passed")
 }
