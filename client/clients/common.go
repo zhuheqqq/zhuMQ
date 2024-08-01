@@ -3,7 +3,9 @@ package clients
 import "net"
 
 type PartKey struct {
-	name string `json:"name"`
+	Name        string `json:"name"`
+	Broker_name string `json:"brokername"`
+	Broker_H_P  string `json:"brokerhp"`
 }
 
 type BrokerInfo struct {

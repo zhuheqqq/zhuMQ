@@ -11,9 +11,12 @@ import (
 
 // Client is designed to provide IDL-compatible methods with call-option parameter for kitex framework.
 type Client interface {
+	Sub(ctx context.Context, req *api.SubRequest, callOptions ...callopt.Option) (r *api.SubResponse, err error)
+	CreateTopic(ctx context.Context, req *api.CreateTopicRequest, callOptions ...callopt.Option) (r *api.CreateTopicResponse, err error)
+	CreatePart(ctx context.Context, req *api.CreatePartRequest, callOptions ...callopt.Option) (r *api.CreatePartResponse, err error)
 	BroInfo(ctx context.Context, req *api.BroInfoRequest, callOptions ...callopt.Option) (r *api.BroInfoResponse, err error)
 	ProGetBroker(ctx context.Context, req *api.ProGetBrokRequest, callOptions ...callopt.Option) (r *api.ProGetBrokResponse, err error)
-	ConGetBroker(ctx context.Context, req *api.ConGetBrokRequest, callOptions ...callopt.Option) (r *api.ConGetBrokResponse, err error)
+	ConStartGetBroker(ctx context.Context, req *api.ConStartGetBrokRequest, callOptions ...callopt.Option) (r *api.ConStartGetBrokResponse, err error)
 	BroGetConfig(ctx context.Context, req *api.BroGetConfigRequest, callOptions ...callopt.Option) (r *api.BroGetConfigResponse, err error)
 }
 
@@ -46,6 +49,21 @@ type kZkServer_OperationsClient struct {
 	*kClient
 }
 
+func (p *kZkServer_OperationsClient) Sub(ctx context.Context, req *api.SubRequest, callOptions ...callopt.Option) (r *api.SubResponse, err error) {
+	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
+	return p.kClient.Sub(ctx, req)
+}
+
+func (p *kZkServer_OperationsClient) CreateTopic(ctx context.Context, req *api.CreateTopicRequest, callOptions ...callopt.Option) (r *api.CreateTopicResponse, err error) {
+	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
+	return p.kClient.CreateTopic(ctx, req)
+}
+
+func (p *kZkServer_OperationsClient) CreatePart(ctx context.Context, req *api.CreatePartRequest, callOptions ...callopt.Option) (r *api.CreatePartResponse, err error) {
+	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
+	return p.kClient.CreatePart(ctx, req)
+}
+
 func (p *kZkServer_OperationsClient) BroInfo(ctx context.Context, req *api.BroInfoRequest, callOptions ...callopt.Option) (r *api.BroInfoResponse, err error) {
 	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
 	return p.kClient.BroInfo(ctx, req)
@@ -56,9 +74,9 @@ func (p *kZkServer_OperationsClient) ProGetBroker(ctx context.Context, req *api.
 	return p.kClient.ProGetBroker(ctx, req)
 }
 
-func (p *kZkServer_OperationsClient) ConGetBroker(ctx context.Context, req *api.ConGetBrokRequest, callOptions ...callopt.Option) (r *api.ConGetBrokResponse, err error) {
+func (p *kZkServer_OperationsClient) ConStartGetBroker(ctx context.Context, req *api.ConStartGetBrokRequest, callOptions ...callopt.Option) (r *api.ConStartGetBrokResponse, err error) {
 	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
-	return p.kClient.ConGetBroker(ctx, req)
+	return p.kClient.ConStartGetBroker(ctx, req)
 }
 
 func (p *kZkServer_OperationsClient) BroGetConfig(ctx context.Context, req *api.BroGetConfigRequest, callOptions ...callopt.Option) (r *api.BroGetConfigResponse, err error) {

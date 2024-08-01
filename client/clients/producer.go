@@ -61,9 +61,42 @@ func (p *Producer) Push(msg Message) error {
 	})
 	if err == nil && resp.Ret {
 		return nil
+	} else if resp.Err == "partition remove" {
+		p.rmu.Lock()
+		delete(p.Topic_Partions, index)
+		p.rmu.Unlock()
+
+		return p.Push(msg) //重新发送该信息
+
 	} else {
 		return errors.New("err != " + err.Error() + "or resp.Ret == false")
 	}
+}
+
+func (p *Producer) CreateTopic(topic_name string) error {
+
+	resp, err := p.ZkBroker.CreateTopic(context.Background(), &api.CreateTopicRequest{
+		TopicName: topic_name,
+	})
+
+	if err != nil || !resp.Ret {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Producer) CreatePart(topic_name, part_name string) error {
+	resp, err := p.ZkBroker.CreatePart(context.Background(), &api.CreatePartRequest{
+		TopicName: topic_name,
+		PartName:  part_name,
+	})
+
+	if err != nil || !resp.Ret {
+		return err
+	}
+
+	return nil
 }
 
 func NewProducer(zkbroker string, name string) (*Producer, error) {

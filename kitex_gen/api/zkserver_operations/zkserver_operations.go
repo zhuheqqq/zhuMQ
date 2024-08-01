@@ -13,6 +13,27 @@ import (
 var errInvalidMessageType = errors.New("invalid message type for service method handler")
 
 var serviceMethods = map[string]kitex.MethodInfo{
+	"Sub": kitex.NewMethodInfo(
+		subHandler,
+		newZkServer_OperationsSubArgs,
+		newZkServer_OperationsSubResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"CreateTopic": kitex.NewMethodInfo(
+		createTopicHandler,
+		newZkServer_OperationsCreateTopicArgs,
+		newZkServer_OperationsCreateTopicResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"CreatePart": kitex.NewMethodInfo(
+		createPartHandler,
+		newZkServer_OperationsCreatePartArgs,
+		newZkServer_OperationsCreatePartResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
 	"BroInfo": kitex.NewMethodInfo(
 		broInfoHandler,
 		newZkServer_OperationsBroInfoArgs,
@@ -27,10 +48,10 @@ var serviceMethods = map[string]kitex.MethodInfo{
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
-	"ConGetBroker": kitex.NewMethodInfo(
-		conGetBrokerHandler,
-		newZkServer_OperationsConGetBrokerArgs,
-		newZkServer_OperationsConGetBrokerResult,
+	"ConStartGetBroker": kitex.NewMethodInfo(
+		conStartGetBrokerHandler,
+		newZkServer_OperationsConStartGetBrokerArgs,
+		newZkServer_OperationsConStartGetBrokerResult,
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
@@ -107,6 +128,60 @@ func newServiceInfo(hasStreaming bool, keepStreamingMethods bool, keepNonStreami
 	return svcInfo
 }
 
+func subHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.ZkServer_OperationsSubArgs)
+	realResult := result.(*api.ZkServer_OperationsSubResult)
+	success, err := handler.(api.ZkServer_Operations).Sub(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newZkServer_OperationsSubArgs() interface{} {
+	return api.NewZkServer_OperationsSubArgs()
+}
+
+func newZkServer_OperationsSubResult() interface{} {
+	return api.NewZkServer_OperationsSubResult()
+}
+
+func createTopicHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.ZkServer_OperationsCreateTopicArgs)
+	realResult := result.(*api.ZkServer_OperationsCreateTopicResult)
+	success, err := handler.(api.ZkServer_Operations).CreateTopic(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newZkServer_OperationsCreateTopicArgs() interface{} {
+	return api.NewZkServer_OperationsCreateTopicArgs()
+}
+
+func newZkServer_OperationsCreateTopicResult() interface{} {
+	return api.NewZkServer_OperationsCreateTopicResult()
+}
+
+func createPartHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.ZkServer_OperationsCreatePartArgs)
+	realResult := result.(*api.ZkServer_OperationsCreatePartResult)
+	success, err := handler.(api.ZkServer_Operations).CreatePart(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newZkServer_OperationsCreatePartArgs() interface{} {
+	return api.NewZkServer_OperationsCreatePartArgs()
+}
+
+func newZkServer_OperationsCreatePartResult() interface{} {
+	return api.NewZkServer_OperationsCreatePartResult()
+}
+
 func broInfoHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
 	realArg := arg.(*api.ZkServer_OperationsBroInfoArgs)
 	realResult := result.(*api.ZkServer_OperationsBroInfoResult)
@@ -143,22 +218,22 @@ func newZkServer_OperationsProGetBrokerResult() interface{} {
 	return api.NewZkServer_OperationsProGetBrokerResult()
 }
 
-func conGetBrokerHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
-	realArg := arg.(*api.ZkServer_OperationsConGetBrokerArgs)
-	realResult := result.(*api.ZkServer_OperationsConGetBrokerResult)
-	success, err := handler.(api.ZkServer_Operations).ConGetBroker(ctx, realArg.Req)
+func conStartGetBrokerHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.ZkServer_OperationsConStartGetBrokerArgs)
+	realResult := result.(*api.ZkServer_OperationsConStartGetBrokerResult)
+	success, err := handler.(api.ZkServer_Operations).ConStartGetBroker(ctx, realArg.Req)
 	if err != nil {
 		return err
 	}
 	realResult.Success = success
 	return nil
 }
-func newZkServer_OperationsConGetBrokerArgs() interface{} {
-	return api.NewZkServer_OperationsConGetBrokerArgs()
+func newZkServer_OperationsConStartGetBrokerArgs() interface{} {
+	return api.NewZkServer_OperationsConStartGetBrokerArgs()
 }
 
-func newZkServer_OperationsConGetBrokerResult() interface{} {
-	return api.NewZkServer_OperationsConGetBrokerResult()
+func newZkServer_OperationsConStartGetBrokerResult() interface{} {
+	return api.NewZkServer_OperationsConStartGetBrokerResult()
 }
 
 func broGetConfigHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
@@ -189,6 +264,36 @@ func newServiceClient(c client.Client) *kClient {
 	}
 }
 
+func (p *kClient) Sub(ctx context.Context, req *api.SubRequest) (r *api.SubResponse, err error) {
+	var _args api.ZkServer_OperationsSubArgs
+	_args.Req = req
+	var _result api.ZkServer_OperationsSubResult
+	if err = p.c.Call(ctx, "Sub", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) CreateTopic(ctx context.Context, req *api.CreateTopicRequest) (r *api.CreateTopicResponse, err error) {
+	var _args api.ZkServer_OperationsCreateTopicArgs
+	_args.Req = req
+	var _result api.ZkServer_OperationsCreateTopicResult
+	if err = p.c.Call(ctx, "CreateTopic", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) CreatePart(ctx context.Context, req *api.CreatePartRequest) (r *api.CreatePartResponse, err error) {
+	var _args api.ZkServer_OperationsCreatePartArgs
+	_args.Req = req
+	var _result api.ZkServer_OperationsCreatePartResult
+	if err = p.c.Call(ctx, "CreatePart", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
 func (p *kClient) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *api.BroInfoResponse, err error) {
 	var _args api.ZkServer_OperationsBroInfoArgs
 	_args.Req = req
@@ -209,11 +314,11 @@ func (p *kClient) ProGetBroker(ctx context.Context, req *api.ProGetBrokRequest) 
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) ConGetBroker(ctx context.Context, req *api.ConGetBrokRequest) (r *api.ConGetBrokResponse, err error) {
-	var _args api.ZkServer_OperationsConGetBrokerArgs
+func (p *kClient) ConStartGetBroker(ctx context.Context, req *api.ConStartGetBrokRequest) (r *api.ConStartGetBrokResponse, err error) {
+	var _args api.ZkServer_OperationsConStartGetBrokerArgs
 	_args.Req = req
-	var _result api.ZkServer_OperationsConGetBrokerResult
-	if err = p.c.Call(ctx, "ConGetBroker", &_args, &_result); err != nil {
+	var _result api.ZkServer_OperationsConStartGetBrokerResult
+	if err = p.c.Call(ctx, "ConStartGetBroker", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
