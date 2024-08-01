@@ -2,42 +2,70 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/cloudwego/kitex/server"
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/server_operations"
+	"zhuMQ/kitex_gen/api/zkserver_operations"
+	"zhuMQ/zookeeper"
 )
 
+// RPCServer可以注册两种server，
+// 一个是客户端（生产者和消费者连接的模式，负责订阅等请求和对zookeeper的请求）使用的server
+// 另一个是Broker获取Zookeeper信息和调度各个Broker的调度者
 type RPCServer struct {
-	srv    server.Server
-	server *Server
+	name     string
+	srv_cli  server.Server
+	srv_bro  server.Server
+	zkinfo   zookeeper.ZKInfo
+	server   *Server
+	zkserver *ZkServer
 }
 
-func NewRpcServer() RPCServer {
+func NewRpcServer(zkinfo zookeeper.ZKInfo) RPCServer {
 	LOGinit()
 	return RPCServer{
-		server: NewServer(),
+		zkinfo: zkinfo,
 	}
 }
 
-func (s *RPCServer) Start(opts []server.Option) error {
-	svr := server_operations.NewServer(s, opts...)
+func (s *RPCServer) Start(opts_cli, opts_bro []server.Option, opt Options) error {
 
-	s.srv = svr
-	s.server.make()
+	switch opt.Tag {
+	case BROKER:
+		s.server = NewServer(s.zkinfo)
+		s.server.make(opt)
+	case ZKBROKER:
+		s.zkserver = NewZKServer(s.zkinfo)
+		s.zkserver.make(opt)
 
-	DEBUG(dLog, "Broker start rpcserver\n")
-	err := svr.Run()
+		srv_bro := zkserver_operations.NewServer(s, opts_bro...)
+		s.srv_bro = srv_bro
+		DEBUG(dLog, "Broker start rpcserver for brokers\n")
+		go func() {
+			err := srv_bro.Run()
 
-	if err != nil {
-		fmt.Println(err.Error())
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}()
 	}
+	srv_cli := server_operations.NewServer(s, opts_cli...)
+	s.srv_cli = srv_cli
+	DEBUG(dLog, "Broker start rpcserver for clients\n")
+	go func() {
+		err := srv_cli.Run()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+
 	return nil
 }
 
 func (s *RPCServer) ShutDown_server() {
-	s.srv.Stop()
+	s.srv_cli.Stop()
+	s.srv_bro.Stop()
 }
 
 // 处理推送请求
@@ -70,7 +98,7 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 	}, nil
 }
 
-func (s *RPCServer) Info(ctx context.Context, req *api.InfoRequest) (resp *api.InfoResponse, err error) {
+func (s *RPCServer) ConInfo(ctx context.Context, req *api.InfoRequest) (resp *api.InfoResponse, err error) {
 	//get client_server's ip and port
 
 	err = s.server.InfoHandle(req.IpPort)
@@ -83,20 +111,16 @@ func (s *RPCServer) Info(ctx context.Context, req *api.InfoRequest) (resp *api.I
 
 // 处理订阅请求
 func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
-	ret, err := s.server.SubHandle(sub{
+	err = s.server.SubHandle(sub{
 		consumer: req.Consumer,
 		topic:    req.Topic,
 		key:      req.Key,
 		option:   req.Option,
 	})
 
-	data_parts, _ := json.Marshal(ret.parts)
-
 	if err == nil {
 		return &api.SubResponse{
-			Ret:   true,
-			Size:  int64(ret.size),
-			Parts: data_parts,
+			Ret: true,
 		}, nil
 	}
 	return &api.SubResponse{Ret: false}, err
@@ -116,3 +140,19 @@ func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (re
 	}
 	return &api.InfoGetResponse{Ret: false}, err
 }
+
+//func (s *RPCServer) ProGetBroker(ctx context.Context, req *api.ProGetBrokRequest) (r *api.ProGetBrokResponse, err error) {
+//
+//}
+
+//func (s *RPCServer) ConGetBroker(ctx context.Context, req *api.ConGetBrokRequest) (r *api.ConGetBrokResponse, err error) {
+//
+//}
+
+//func (s *RPCServer) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *api.BroInfoResponse, err error) {
+//
+//}
+
+//func (s *RPCServer) BroGetConfig(ctx context.Context, req *api.BroGetConfigRequest) (r *api.BroGetConfigResponse, err error) {
+//
+//}

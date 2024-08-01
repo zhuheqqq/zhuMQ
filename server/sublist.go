@@ -39,9 +39,11 @@ func NewTopic(req push) *Topic {
 	str, _ := os.Getwd()
 	str += "/" + name + "/" + req.topic
 	CreateList(str)
-	part, file := NewPartition(req)
-	topic.Files[req.key] = file
-	topic.Parts[req.key] = part
+	if req.key != "" {
+		part, file := NewPartition(req)
+		topic.Files[req.key] = file
+		topic.Parts[req.key] = part
+	}
 
 	return topic
 }
@@ -53,11 +55,11 @@ func (t *Topic) GetParts() map[string]*Partition {
 	return t.Parts
 }
 
-func (t *Topic) GetFile(key string) *File {
+func (t *Topic) GetFile(filename string) *File {
 	t.rmu.RLock()
 	defer t.rmu.RUnlock()
 
-	return t.Parts[key].GetFile()
+	return t.Parts[filename].GetFile()
 }
 
 func (t *Topic) GetConfig(sub string) *Config {
@@ -67,9 +69,15 @@ func (t *Topic) GetConfig(sub string) *Config {
 	return t.subList[sub].GetConfig()
 }
 
+func (t *Topic) AddPartition(req push) {
+	part, _ := NewPartition(req)
+	t.Parts[req.key] = part
+}
+
 func (t *Topic) addMessage(req push) error {
 	part, ok := t.Parts[req.key]
 	if !ok {
+		DEBUG(dError, "not find this part in add message\n")
 		part, file := NewPartition(req) //需要向sub中和config中加入一个partition
 		t.Files[req.key] = file
 		t.Parts[req.key] = part
@@ -78,8 +86,6 @@ func (t *Topic) addMessage(req push) error {
 	part.mu.Lock()
 
 	part.mu.Unlock()
-
-	part.addMessage(req)
 
 	return nil
 }
@@ -176,6 +182,12 @@ func NewPartition(req push) (*Partition, *File) {
 	part.addMessage(req)
 
 	return part, part.file
+}
+
+// 检查是否存在path的文件，若不存在则错误，存在则创建一个File
+// 若path和partition的name相同，有就创建一个File，没有就创建一个这个名字的文件
+func (p *Partition) AddFile(path string) *File {
+	return
 }
 
 // 往队列中添加信息，在队列达到一定长度时将消息写入文件

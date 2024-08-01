@@ -11,6 +11,50 @@ type PartKey struct {
 	name string `json:"name"`
 }
 
+// 初始化Broker时的信息
+type Options struct {
+	Name               string
+	Tag                string
+	Zkserver_Host_Port string
+	Broker_Host_Port   string
+}
+
+// broker向zookeeper发送自己的新能指标，用于按权值负载均衡
+type Property struct {
+	Name    string `json:"name"`
+	Power   int64  `json:"power"`
+	CPURate int64  `json:"cpurate"`
+	DiskIO  int64  `json:"diskio"`
+}
+
+type BroNodeInfo struct {
+	Topics map[string]TopNodeInfo `json:"topics"`
+}
+
+type TopNodeInfo struct {
+	Topic_name string
+	Part_nums  int
+	Partitions map[string]PartNodeInfo
+}
+
+type PartNodeInfo struct {
+	Part_name  string
+	Block_name int
+	Blocks     map[string]BloNodeInfo
+}
+
+type BloNodeInfo struct {
+	Start_index int64
+	End_index   int64
+	Path        string
+	File_name   string
+}
+
+const (
+	ZKBROKER = "zkbroker"
+	BROKER   = "broker"
+)
+
 func GetIpport() string {
 	interfaces, err := net.Interfaces()
 	ipport := ""

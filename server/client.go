@@ -256,6 +256,7 @@ func (p *Part) AddBlock() error {
 	return err
 }
 
+// 需要修改成可主动关闭模式
 func (p *Part) GetDone() {
 
 	for do := range p.part_had {
