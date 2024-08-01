@@ -27,10 +27,10 @@ var serviceMethods = map[string]kitex.MethodInfo{
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
-	"info": kitex.NewMethodInfo(
-		infoHandler,
-		newServer_OperationsInfoArgs,
-		newServer_OperationsInfoResult,
+	"ConInfo": kitex.NewMethodInfo(
+		conInfoHandler,
+		newServer_OperationsConInfoArgs,
+		newServer_OperationsConInfoResult,
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
@@ -150,22 +150,22 @@ func newServer_OperationsPullResult() interface{} {
 	return api.NewServer_OperationsPullResult()
 }
 
-func infoHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
-	realArg := arg.(*api.Server_OperationsInfoArgs)
-	realResult := result.(*api.Server_OperationsInfoResult)
-	success, err := handler.(api.Server_Operations).Info(ctx, realArg.Req)
+func conInfoHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsConInfoArgs)
+	realResult := result.(*api.Server_OperationsConInfoResult)
+	success, err := handler.(api.Server_Operations).ConInfo(ctx, realArg.Req)
 	if err != nil {
 		return err
 	}
 	realResult.Success = success
 	return nil
 }
-func newServer_OperationsInfoArgs() interface{} {
-	return api.NewServer_OperationsInfoArgs()
+func newServer_OperationsConInfoArgs() interface{} {
+	return api.NewServer_OperationsConInfoArgs()
 }
 
-func newServer_OperationsInfoResult() interface{} {
-	return api.NewServer_OperationsInfoResult()
+func newServer_OperationsConInfoResult() interface{} {
+	return api.NewServer_OperationsConInfoResult()
 }
 
 func subHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
@@ -234,11 +234,11 @@ func (p *kClient) Pull(ctx context.Context, req *api.PullRequest) (r *api.PullRe
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) Info(ctx context.Context, req *api.InfoRequest) (r *api.InfoResponse, err error) {
-	var _args api.Server_OperationsInfoArgs
+func (p *kClient) ConInfo(ctx context.Context, req *api.InfoRequest) (r *api.InfoResponse, err error) {
+	var _args api.Server_OperationsConInfoArgs
 	_args.Req = req
-	var _result api.Server_OperationsInfoResult
-	if err = p.c.Call(ctx, "info", &_args, &_result); err != nil {
+	var _result api.Server_OperationsConInfoResult
+	if err = p.c.Call(ctx, "ConInfo", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil

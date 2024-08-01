@@ -5,36 +5,40 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/server"
 	"net"
 	"sync"
 	"zhuMQ/kitex_gen/api"
 	ser "zhuMQ/kitex_gen/api/client_operations"
 	"zhuMQ/kitex_gen/api/server_operations"
+	"zhuMQ/kitex_gen/api/zkserver_operations"
 )
 
 type Consumer struct {
-	Cli  server_operations.Client //连接多个broker
 	Name string
 	srv  server.Server
 
-	State string
-	mu    sync.RWMutex
+	State    string
+	mu       sync.RWMutex
+	port     string
+	zkBroker zkserver_operations.Client
+	Brokers  map[string]*server_operations.Client
 }
 
-type Info struct {
-	offset int64
-	topic  string
-	part   string
-	option int8
-	bufs   map[int64]*api.PubRequest
-}
-
-func NewConsumer() Consumer {
-	return Consumer{
-		mu:    sync.RWMutex{},
-		State: "alive",
+func NewConsumer(zkbroker string, name string, port string) (*Consumer, error) {
+	C := Consumer{
+		mu:      sync.RWMutex{},
+		Name:    name,
+		State:   "alive",
+		port:    port,
+		Brokers: make(map[string]*server_operations.Client),
 	}
+
+	var err error
+	C.zkBroker, err = zkserver_operations.NewClient(C.Name, client.WithHostPorts(zkbroker))
+
+	return &C, err
 }
 
 func (c *Consumer) Alive() string {
@@ -44,6 +48,7 @@ func (c *Consumer) Alive() string {
 	return c.State
 }
 
+// 未实现
 func (c *Consumer) Pub(ctx context.Context, req *api.PubRequest) (resp *api.PubResponse, err error) {
 	fmt.Println(req)
 
@@ -57,8 +62,8 @@ func (c *Consumer) Pingpong(ctx context.Context, req *api.PingPongRequest) (resp
 	return &api.PingPongResponse{Pong: true}, nil
 }
 
-func (c *Consumer) Start_server(port string) {
-	addr, _ := net.ResolveTCPAddr("tcp", port)
+func (c *Consumer) Start_server() {
+	addr, _ := net.ResolveTCPAddr("tcp", c.port)
 	var opts []server.Option
 	opts = append(opts, server.WithServiceAddr(addr))
 
@@ -74,44 +79,105 @@ func (c *Consumer) ShutDown_server() {
 	c.srv.Stop()
 }
 
+// 标记消费者不可用
 func (c *Consumer) Down() {
 	c.mu.Lock()
 	c.State = "down"
 	c.mu.Unlock()
 }
 
-func (c *Consumer) SubScription(sub api.SubRequest) (ret []PartKey, err error) {
+func (c *Consumer) SubScription(topic, partition string, option int8) (clis []*server_operations.Client, err error) {
 	//查询Zookeeper，找到broker
+	c.mu.RLock()
+	zk := c.zkBroker
+	c.mu.RUnlock()
 
-	//发送RPC请求
-	resp, err := c.Cli.Sub(context.Background(), &sub)
+	resp, err := zk.ConGetBroker(context.Background(), &api.ConGetBrokRequest{
+		TopicName: topic,
+		PartName:  partition,
+		Option:    option,
+	})
 	if err != nil || !resp.Ret {
-		return ret, err
+		return nil, err
 	}
 
-	parts := make([]PartKey, resp.Size)
+	broks := make([]BrokerInfo, resp.Size)
+	json.Unmarshal(resp.Broks, &broks)
 
-	json.Unmarshal(resp.Parts, &parts)
+	parts := make([]PartKey, resp.Size) //not used
+	json.Unmarshal(resp.Parts, &parts)  //not used
 
-	return parts, nil
+	//发送Sub请求
+	for _, brok := range broks {
+		cli, err := server_operations.NewClient(c.Name, client.WithHostPorts(brok.Host_port))
+		if err != nil || !resp.Ret {
+			return clis, err
+		}
+		clis = append(clis, &cli)
+		c.Brokers[brok.Name] = &cli
+
+		c.SendInfo(c.port, &cli)
+
+		resp, err := cli.Sub(context.Background(), &api.SubRequest{
+			Consumer: c.Name,
+			Topic:    topic,
+			Key:      partition,
+			Option:   option,
+		})
+		if err != nil || !resp.Ret {
+			return clis, err
+		}
+	}
+
+	return clis, nil
+}
+
+// 向broker发送开始获取消息的请求
+func (c *Consumer) SendInfo(port string, cli *server_operations.Client) error {
+
+	resp, err := (*cli).ConInfo(context.Background(), &api.InfoRequest{
+		IpPort: port,
+	})
+	if err != nil {
+		fmt.Println(resp)
+	}
+	return err
 }
 
 func (c *Consumer) StartGet(info Info) (err error) {
 	ret := ""
 	req := api.InfoGetRequest{
 		CliName:   c.Name,
-		TopicName: info.topic,
-		PartName:  info.part,
-		Offset:    info.offset,
-		Option:    info.option,
+		TopicName: info.Topic,
+		PartName:  info.Part,
+		Offset:    info.Offset,
+		Option:    info.Option,
 	}
-	resp, err := c.Cli.StarttoGet(context.Background(), &req)
+	resp, err := info.Cli.StarttoGet(context.Background(), &req)
 	if err != nil || !resp.Ret {
-		ret += info.topic + info.part + ": err != nil or resp.Ret == false\n"
+		ret += info.Topic + info.Part + ": err != nil or resp.Ret == false\n"
 	}
 	if ret == "" {
 		return nil
 	} else {
 		return errors.New(ret)
+	}
+}
+
+type Info struct {
+	Offset int64
+	Topic  string
+	Part   string
+	Option int8
+	Bufs   map[int64]*api.PubRequest
+	Cli    server_operations.Client
+}
+
+func NewInfo(offset int64, topic, part string) Info {
+	return Info{
+		Offset: offset,
+		Topic:  topic,
+		Part:   part,
+		Bufs:   make(map[int64]*api.PubRequest),
 	}
 }

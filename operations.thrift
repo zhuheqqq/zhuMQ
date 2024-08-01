@@ -41,11 +41,22 @@ struct InfoGetResponse {
     1: bool  ret
 }
 
+struct SubRequest {
+    1: string consumer
+    2: string topic
+    3: string key
+    4: i8 option
+}
+
+struct SubResponse {
+    1: bool ret
+}
+
 
 service Server_Operations {
     PushResponse    push(1: PushRequest req)
     PullResponse    pull(1: PullRequest req)
-    InfoResponse    info(1: InfoRequest req)
+    InfoResponse    ConInfo(1: InfoRequest req)
     SubResponse     Sub(1:  SubRequest  req)
     InfoGetResponse StarttoGet(1: InfoGetRequest req)
 }
@@ -70,21 +81,56 @@ struct PingPongResponse {
     1: bool pong
 }
 
-struct SubRequest {
-    1: string consumer
-    2: string topic
-    3: string key
-    4: i8 option
-}
-
-struct SubResponse {
-    1: bool ret
-    2: i64  size
-    3:binary parts
-}
-
 
 service Client_Operations {
     PubResponse pub(1: PubRequest req)
     PingPongResponse pingpong(1: PingPongRequest req)
+}
+
+struct BroInfoRequest {
+    1: string broker_name
+    2: string broker_host_port
+}
+
+struct BroInfoResponse {
+    1: bool ret
+}
+
+struct ProGetBrokRequest {
+    1:  string  topic_name
+    2:  string  part_name
+}
+
+struct ProGetBrokResponse {
+    1:  bool    ret
+    2:  string  broker_host_port
+}
+
+struct ConGetBrokRequest {
+    1:  string topic_name
+    2:  string part_name
+    3:  i8 option
+}
+
+struct ConGetBrokResponse   {
+    1:  bool    ret
+    2:  i64     size
+    3:  binary  broks
+    4:  binary  parts
+}
+
+struct BroGetConfigRequest {
+    1:  binary  propertyinfo
+}
+
+struct BroGetConfigResponse {
+    1:  bool    ret
+    2:  binary  brokerinfo
+}
+
+service ZkServer_Operations {
+    BroInfoResponse BroInfo(1: BroInfoRequest req)
+    ProGetBrokResponse ProGetBroker(1:  ProGetBrokRequest req)
+    ConGetBrokResponse ConGetBroker(1:  ConGetBrokRequest req)
+    BroGetConfigResponse BroGetConfig(1:    BroGetConfigRequest req)
 }
