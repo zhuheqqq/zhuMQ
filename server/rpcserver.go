@@ -63,6 +63,7 @@ func (s *RPCServer) Start(opts_cli, opts_bro []server.Option, opt Options) error
 	return nil
 }
 
+// producer--->broker server
 func (s *RPCServer) ShutDown_server() {
 	s.srv_cli.Stop()
 	s.srv_bro.Stop()
@@ -98,6 +99,7 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 	}, nil
 }
 
+// consumer---->broker server
 func (s *RPCServer) ConInfo(ctx context.Context, req *api.InfoRequest) (resp *api.InfoResponse, err error) {
 	//get client_server's ip and port
 
@@ -109,6 +111,7 @@ func (s *RPCServer) ConInfo(ctx context.Context, req *api.InfoRequest) (resp *ap
 	return &api.InfoResponse{Ret: false}, err
 }
 
+// consumer---->broker server
 func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (resp *api.InfoGetResponse, err error) {
 	err = s.server.StartGet(startget{
 		cli_name:   req.CliName,
@@ -184,6 +187,7 @@ func (s *RPCServer) ProGetBroker(ctx context.Context, req *api.ProGetBrokRequest
 	}, nil
 }
 
+// consumer---->zkserver
 func (s *RPCServer) ConStartGetBroker(ctx context.Context, req *api.ConStartGetBrokRequest) (r *api.ConStartGetBrokResponse, err error) {
 	parts, size, err := s.zkserver.HandStartGetBroker(Info_in{
 		cli_name:   req.CliName,
@@ -208,6 +212,7 @@ func (s *RPCServer) ConStartGetBroker(ctx context.Context, req *api.ConStartGetB
 //
 //}
 
+// broker---->zkserver
 // broker连接到zkserver后会立即发送info，让zkserver连接到broker
 func (s *RPCServer) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *api.BroInfoResponse, err error) {
 	err = s.zkserver.HandleBroInfo(req.BrokerName, req.BrokerHostPort)
@@ -222,6 +227,7 @@ func (s *RPCServer) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *ap
 	}, nil
 }
 
+// broker---->zkserver
 func (s *RPCServer) BroGetConfig(ctx context.Context, req *api.BroGetConfigRequest) (r *api.BroGetConfigResponse, err error) {
 	/*
 		用于broker加载缓存
@@ -234,6 +240,7 @@ func (s *RPCServer) BroGetConfig(ctx context.Context, req *api.BroGetConfigReque
 	}, nil
 }
 
+// consumer---->zkserver
 // 订阅
 func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
 
@@ -253,6 +260,7 @@ func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.Sub
 	return &api.SubResponse{Ret: false}, err
 }
 
+// zkserver---->broker server
 func (s *RPCServer) PrepareAccept(ctx context.Context, req *api.PrepareAcceptRequest) (r *api.PrepareAcceptResponse, err error) {
 	ret, err := s.server.PrepareAcceptHandle(info{
 		topic_name: req.TopicName,
@@ -272,6 +280,11 @@ func (s *RPCServer) PrepareAccept(ctx context.Context, req *api.PrepareAcceptReq
 	}, nil
 }
 
+//zkserver---->broker server
+//zkserver控制broker停止接收某个partition的信息，
+//并修改文件名，关闭partition中的fd等
+
+// zkserver---->broker server
 func (s *RPCServer) PrepareSend(ctx context.Context, req *api.PrepareSendRequest) (r *api.PrepareSendResponse, err error) {
 	ret, err := s.server.PrepareSendHandle(info{
 		topic_name: req.TopicName,

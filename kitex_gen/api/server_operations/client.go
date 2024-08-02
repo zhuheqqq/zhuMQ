@@ -17,6 +17,7 @@ type Client interface {
 	StarttoGet(ctx context.Context, req *api.InfoGetRequest, callOptions ...callopt.Option) (r *api.InfoGetResponse, err error)
 	PrepareAccept(ctx context.Context, req *api.PrepareAcceptRequest, callOptions ...callopt.Option) (r *api.PrepareAcceptResponse, err error)
 	PrepareSend(ctx context.Context, req *api.PrepareSendRequest, callOptions ...callopt.Option) (r *api.PrepareSendResponse, err error)
+	CloseAccept(ctx context.Context, req *api.CloseAcceptRequest, callOptions ...callopt.Option) (r *api.CloseAcceptResponse, err error)
 }
 
 // NewClient creates a client for the service defined in IDL.
@@ -76,4 +77,9 @@ func (p *kServer_OperationsClient) PrepareAccept(ctx context.Context, req *api.P
 func (p *kServer_OperationsClient) PrepareSend(ctx context.Context, req *api.PrepareSendRequest, callOptions ...callopt.Option) (r *api.PrepareSendResponse, err error) {
 	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
 	return p.kClient.PrepareSend(ctx, req)
+}
+
+func (p *kServer_OperationsClient) CloseAccept(ctx context.Context, req *api.CloseAcceptRequest, callOptions ...callopt.Option) (r *api.CloseAcceptResponse, err error) {
+	ctx = client.NewCtxWithCallOptions(ctx, callOptions)
+	return p.kClient.CloseAccept(ctx, req)
 }

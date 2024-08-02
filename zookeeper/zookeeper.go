@@ -230,3 +230,17 @@ func (z *ZK) GetBlockNode(path string) BlockNode {
 
 	return blocknode
 }
+
+func (z *ZK) GetBlockSize(topic_name, part_name string) (int, error) {
+	path := z.TopicRoot + "/" + topic_name + "/partitions/" + part_name
+	ok, _, err := z.conn.Exists(path)
+	if !ok {
+		return 0, err
+	}
+
+	parts, _, err := z.conn.Children(path)
+	if err != nil {
+		return 0, err
+	}
+	return len(parts), nil
+}

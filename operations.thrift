@@ -79,6 +79,14 @@ struct CloseGetMessageResponse{
     1:  bool    ret
 }
 
+struct CloseAcceptRequest{
+
+}
+
+struct CloseAcceptResponse{
+
+}
+
 //zkserver
 struct PrepareAcceptRequest{
     1:  string  topic_name
@@ -114,6 +122,7 @@ service Server_Operations {
      //zkserver used this rpc to request broker server
     PrepareAcceptResponse PrepareAccept(1: PrepareAcceptRequest req)
     PrepareSendResponse PrepareSend(1: PrepareSendRequest req)
+     CloseAcceptResponse     CloseAccept(1: CloseAcceptRequest req)
 }
 
 struct PubRequest {

@@ -55,6 +55,13 @@ var serviceMethods = map[string]kitex.MethodInfo{
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
+	"CloseAccept": kitex.NewMethodInfo(
+		closeAcceptHandler,
+		newServer_OperationsCloseAcceptArgs,
+		newServer_OperationsCloseAcceptResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
 }
 
 var (
@@ -229,6 +236,24 @@ func newServer_OperationsPrepareSendResult() interface{} {
 	return api.NewServer_OperationsPrepareSendResult()
 }
 
+func closeAcceptHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsCloseAcceptArgs)
+	realResult := result.(*api.Server_OperationsCloseAcceptResult)
+	success, err := handler.(api.Server_Operations).CloseAccept(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsCloseAcceptArgs() interface{} {
+	return api.NewServer_OperationsCloseAcceptArgs()
+}
+
+func newServer_OperationsCloseAcceptResult() interface{} {
+	return api.NewServer_OperationsCloseAcceptResult()
+}
+
 type kClient struct {
 	c client.Client
 }
@@ -294,6 +319,16 @@ func (p *kClient) PrepareSend(ctx context.Context, req *api.PrepareSendRequest) 
 	_args.Req = req
 	var _result api.Server_OperationsPrepareSendResult
 	if err = p.c.Call(ctx, "PrepareSend", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) CloseAccept(ctx context.Context, req *api.CloseAcceptRequest) (r *api.CloseAcceptResponse, err error) {
+	var _args api.Server_OperationsCloseAcceptArgs
+	_args.Req = req
+	var _result api.Server_OperationsCloseAcceptResult
+	if err = p.c.Call(ctx, "CloseAccept", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
