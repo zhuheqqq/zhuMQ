@@ -42,14 +42,13 @@ func main() {
 		//start a server for pub and pinpong
 		go consumer.Start_server()
 
-		clis, _ := consumer.SubScription("phone_number", "yclchuxue", 2)
+		consumer.SubScription("phone_number", "zhuheqqq", 2)
 
 		consumer.StartGet(clients.Info{
 			Offset: 0,
 			Topic:  "phone_number",
 			Part:   "zhuheqqq",
 			Option: 2,
-			Cli:    *clis[0],
 		})
 	}
 
