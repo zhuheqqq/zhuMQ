@@ -51,10 +51,42 @@ func (t *Topic) PrepareAcceptHandle(in info) (ret string, err error) {
 		partition = NewPartition(t.Name, in.part_name)
 		t.Parts[in.part_name] = partition
 	}
+
+	//设置partition中的file和fd，start_index等信息
+	str, _ := os.Getwd()
+	str += "/" + name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	file, fd := NewFile(str)
+	t.Files[str] = file
 	t.rmu.Unlock()
+	ret = partition.StartGetMessage(file, fd, in)
+	if ret == OK {
+		DEBUG(dLog, "topic(%v)_partition(%v) Start success\n", in.topic_name, in.part_name)
+	} else {
+		DEBUG(dLog, "topic(%v)_partition(%v) Had Started\n", in.topic_name, in.part_name)
+	}
+	return ret, nil
 
-	return ret, err
+}
 
+func (p *Partition) StartGetMessage(file *File, fd *os.File, in info) string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	ret := ""
+	switch p.state {
+	case START:
+		ret = ErrHadStart
+	case CLOSE:
+		p.queue = make([]Message, 50)
+
+		p.state = START
+		p.file = file
+		p.fd = fd
+		p.file_name = in.file_name
+		p.index = file.GetIndex(fd)
+		p.start_index = p.index + 1
+		ret = OK
+	}
+	return ret
 }
 
 func (t *Topic) HandleParttitions(Partitions map[string]PartNodeInfo) {
@@ -101,7 +133,7 @@ func (t *Topic) addMessage(req push) error {
 	part, ok := t.Parts[req.key]
 	if !ok {
 		DEBUG(dError, "not find this part in add message\n")
-		part := NewPartition(req.key) //需要向sub中和config中加入一个partition
+		part := NewPartition(req.topic, req.key) //需要向sub中和config中加入一个partition
 		t.Parts[req.key] = part
 	}
 
@@ -193,7 +225,7 @@ func NewPartition(topic_name, part_name string) *Partition {
 	part := &Partition{
 		mu:    sync.RWMutex{},
 		key:   part_name,
-		state: START,
+		state: CLOSE,
 		//queue: make([]Message, 50),
 	}
 
@@ -209,7 +241,8 @@ func (p *Partition) AddFile(path string) *File {
 	return
 }
 
-// 往队列中添加信息，在队列达到一定长度时将消息写入文件
+// 检查state
+// 当接收数据达到一定数量将修改zookeeper上的index
 func (p *Partition) addMessage(req push) {
 	p.mu.Lock()
 	p.index++
@@ -257,6 +290,8 @@ type SubScription struct {
 	topic_name string
 	option     int8 //订阅选项
 	groups     []*Group
+
+	//需要修改，分为多种订阅，每种订阅方式一种config
 	config     *Config
 	partitions map[string]*Partition
 	Files      map[string]*File

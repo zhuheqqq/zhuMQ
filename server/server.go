@@ -234,6 +234,13 @@ func (s *Server) CheckList() {
 	}
 }
 
+const (
+	ErrHadStart = "this partition had Start"
+)
+
+// 准备接收信息，
+// 检查topic和partition是否存在，不存在则需要创建，
+// 设置partition中的file和fd，start_index等信息
 func (s *Server) PrepareAcceptHandle(in info) (ret string, err error) {
 	s.mu.Lock()
 	topic, ok := s.topics[in.topic_name]
@@ -245,6 +252,10 @@ func (s *Server) PrepareAcceptHandle(in info) (ret string, err error) {
 	return topic.PrepareAcceptHandle(in)
 }
 
+// 准备发送信息，
+// 检查topic和subscription是否存在，不存在则需要创建
+// 检查该文件的config是否存在，不存在则创建，并开启协程
+// 协程设置超时时间，时间到则关闭
 func (s *Server) PrepareSendHandle(in info) (ret string, err error) {
 
 }
