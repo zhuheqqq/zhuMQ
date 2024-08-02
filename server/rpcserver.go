@@ -72,11 +72,11 @@ func (s *RPCServer) ShutDown_server() {
 // 处理推送请求
 func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.PushResponse, err error) {
 	fmt.Println(req)
-	err = s.server.PushHandle(push{
-		producer: req.Producer,
-		topic:    req.Topic,
-		key:      req.Key,
-		message:  req.Message,
+	err = s.server.PushHandle(info{
+		producer:   req.Producer,
+		topic_name: req.Topic,
+		part_name:  req.Key,
+		message:    req.Message,
 	})
 	if err == nil {
 		return &api.PushResponse{Ret: false}, nil
@@ -86,10 +86,10 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 
 // 处理拉取请求
 func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.PullResponse, err error) {
-	ret, err := s.server.PullHandle(pull{
-		consumer: req.Consumer,
-		topic:    req.Topic,
-		key:      req.Key,
+	ret, err := s.server.PullHandle(info{
+		consumer:   req.Consumer,
+		topic_name: req.Topic,
+		part_name:  req.Key,
 	})
 	if err == nil {
 		return &api.PullResponse{Message: ret.message}, nil
@@ -113,11 +113,11 @@ func (s *RPCServer) ConInfo(ctx context.Context, req *api.InfoRequest) (resp *ap
 
 // consumer---->broker server
 func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (resp *api.InfoGetResponse, err error) {
-	err = s.server.StartGet(startget{
-		cli_name:   req.CliName,
+	err = s.server.StartGet(info{
+		consumer:   req.CliName,
 		topic_name: req.TopicName,
 		part_name:  req.PartName,
-		index:      req.Offset,
+		offset:     req.Offset,
 	})
 	if err == nil {
 		return &api.InfoGetResponse{
@@ -244,11 +244,11 @@ func (s *RPCServer) BroGetConfig(ctx context.Context, req *api.BroGetConfigReque
 // 订阅
 func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
 
-	err = s.zkserver.SubHandle(sub{
-		consumer: req.Consumer,
-		topic:    req.Topic,
-		key:      req.Key,
-		option:   req.Option,
+	err = s.zkserver.SubHandle(info_in{
+		cli_name:   req.Consumer,
+		topic_name: req.Topic,
+		part_name:  req.Key,
+		option:     req.Option,
 	})
 
 	if err == nil {
@@ -280,9 +280,12 @@ func (s *RPCServer) PrepareAccept(ctx context.Context, req *api.PrepareAcceptReq
 	}, nil
 }
 
-//zkserver---->broker server
-//zkserver控制broker停止接收某个partition的信息，
-//并修改文件名，关闭partition中的fd等
+// zkserver---->broker server
+// zkserver控制broker停止接收某个partition的信息，
+// 并修改文件名，关闭partition中的fd等
+func (s *RPCServer) CloseAccept(ctx context.Context, req *api.CloseAcceptRequest) (r *api.CloseAcceptResponse, err error) {
+
+}
 
 // zkserver---->broker server
 func (s *RPCServer) PrepareSend(ctx context.Context, req *api.PrepareSendRequest) (r *api.PrepareSendResponse, err error) {
