@@ -52,6 +52,10 @@ struct StartGetMessageRequest {
     3:  string file_name
 }
 
+struct StartGetMessageResponse {
+    1: bool    ret
+}
+
 struct SubRequest {
     1: string consumer
     2: string topic
@@ -61,10 +65,6 @@ struct SubRequest {
 
 struct SubResponse {
     1: bool ret
-}
-
-struct StartGetMessageResponse {
-    1: bool    ret
 }
 
 //关闭某个partition，停止接收信息，
@@ -161,6 +161,15 @@ struct ProGetBrokResponse {
     2:  string  broker_host_port
 }
 
+struct BroGetConfigRequest {
+    1:  binary  propertyinfo
+}
+
+struct BroGetConfigResponse {
+    1:  bool    ret
+    2:  binary  brokerinfo
+}
+
 struct ConGetBrokRequest {
     1:  string topic_name
     2:  string part_name
@@ -172,15 +181,6 @@ struct ConGetBrokResponse   {
     2:  i64     size
     3:  binary  broks
     4:  binary  parts
-}
-
-struct BroGetConfigRequest {
-    1:  binary  propertyinfo
-}
-
-struct BroGetConfigResponse {
-    1:  bool    ret
-    2:  binary  brokerinfo
 }
 
 //consumer 请求zkserver
@@ -220,12 +220,12 @@ struct CreatePartResponse {
 
 service ZkServer_Operations {
    SubResponse  Sub(1:  SubRequest  req)               //consumer used
-       CreateTopicResponse CreateTopic(1: CreateTopicRequest req)
-       CreatePartResponse  CreatePart(1: CreatePartRequest req)
-       BroInfoResponse BroInfo(1: BroInfoRequest req)
-       ProGetBrokResponse ProGetBroker(1:  ProGetBrokRequest req)
-       ConStartGetBrokResponse ConStartGetBroker(1:  ConStartGetBrokRequest req)
+   CreateTopicResponse CreateTopic(1: CreateTopicRequest req)
+   CreatePartResponse  CreatePart(1: CreatePartRequest req)
+   BroInfoResponse BroInfo(1: BroInfoRequest req)
+   ProGetBrokResponse ProGetBroker(1:  ProGetBrokRequest req)
+   ConStartGetBrokResponse ConStartGetBroker(1:  ConStartGetBrokRequest req)
 
        //broker 用于恢复缓存的，暂时不使用
-       BroGetConfigResponse BroGetConfig(1:    BroGetConfigRequest req)
+   BroGetConfigResponse BroGetConfig(1:    BroGetConfigRequest req)
 }

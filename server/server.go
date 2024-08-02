@@ -84,6 +84,18 @@ type startget struct {
 	option     int8
 }
 
+type info struct {
+	name       string //broker name
+	topic_name string
+	part_name  string
+	file_name  string
+	option     int8
+	offset     int64
+
+	producer string
+	consumer string
+}
+
 //type retsub struct {
 //	size  int
 //	parts []PartKey
@@ -121,7 +133,7 @@ func (s *Server) make(opt Options) {
 	if err != nil || !resp.Ret {
 		DEBUG(dError, err.Error())
 	}
-	s.IntiBroker()
+	//s.IntiBroker() 根据zookeeper上的历史信息，加载缓存信息
 }
 
 // 获取该Broker需要负责的Topic和Partition,并在本地创建对应配置
@@ -159,33 +171,13 @@ func (s *Server) HandleTopics(Topics map[string]TopNodeInfo) {
 	for topic_name, topic := range Topics {
 		_, ok := s.topics[topic_name]
 		if !ok {
-
+			top := NewTopic(topic_name)
+			top.HandleParttitions(topic.Partitions)
 			s.HandleParttitions(topic_name, topic.Partitions)
 		} else {
 			DEBUG(dWarn, "This topic(%v) had in s.topics\n", topic_name)
 		}
 	}
-}
-
-func (s *Server) HandleParttitions(topic_name string, Partitions map[string]PartNodeInfo) {
-	for part_name, partition := range Partitions {
-		_, ok := s.topics[topic_name].Parts[part_name]
-		if !ok {
-
-			s.topics[topic_name] = NewTopic(push{
-				topic: topic_name,
-				key:   part_name,
-			})
-
-			s.HandleBlocks(topic_name, part_name, partition.Blocks)
-		} else {
-			DEBUG(dWarn, "This topic(%v) part(%v) had in s.topics\n", topic_name, part_name)
-		}
-	}
-}
-
-func (s *Server) HandleBlocks(topic_name, part_name string, Blocks map[string]BloNodeInfo) {
-
 }
 
 func (s *Server) StartGet(start startget) (err error) {
@@ -242,6 +234,21 @@ func (s *Server) CheckList() {
 	}
 }
 
+func (s *Server) PrepareAcceptHandle(in info) (ret string, err error) {
+	s.mu.Lock()
+	topic, ok := s.topics[in.topic_name]
+	if !ok {
+		topic = NewTopic(in.topic_name)
+		s.topics[in.topic_name] = topic
+	}
+	s.mu.Unlock()
+	return topic.PrepareAcceptHandle(in)
+}
+
+func (s *Server) PrepareSendHandle(in info) (ret string, err error) {
+
+}
+
 func (s *Server) InfoHandle(ipport string) error {
 	DEBUG(dLog, "get consumer's ip_port %v\n", ipport)
 	client, err := client_operations.NewClient("clients", client2.WithHostPorts(ipport))
@@ -278,7 +285,7 @@ func (s *Server) RecoverConsumer(client *Client) {
 // 检查消费者状态
 func (s *Server) CheckConsumer(client *Client) {
 	shutdown := client.CheckConsumer()
-	if shutdown {
+	if shutdown { //该consumer已关闭，平衡subscription
 		client.mu.Lock()
 		for _, subscription := range client.subList {
 			subscription.ShutdownConsumerInGroup(client.name)
@@ -326,7 +333,7 @@ func (s *Server) UnSubHandle(req sub) error {
 func (s *Server) PushHandle(req push) error {
 	topic, ok := s.topics[req.topic]
 	if !ok {
-		topic = NewTopic(req)
+		topic = NewTopic(req.topic)
 		s.mu.Lock()
 		s.topics[req.topic] = topic
 		s.mu.Unlock()
@@ -334,6 +341,7 @@ func (s *Server) PushHandle(req push) error {
 	topic.addMessage(req)
 	return nil
 }
+
 func (s *Server) PullHandle(req pull) (retpull, error) {
 	return retpull{}, nil
 }

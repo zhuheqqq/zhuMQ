@@ -2,7 +2,6 @@ package server
 
 import (
 	"errors"
-	"fmt"
 	"hash/crc32"
 	"os"
 	"sort"
@@ -26,26 +25,50 @@ type Topic struct {
 	Files   map[string]*File
 	Parts   map[string]*Partition    //储存该主题下的所有分区
 	subList map[string]*SubScription //存储该主题所有订阅
+	Name    string
 }
 
 // 创建新topic,初始化分区和订阅对象
-func NewTopic(req push) *Topic {
+func NewTopic(topic_name string) *Topic {
 	topic := &Topic{
 		rmu:     sync.RWMutex{},
+		Name:    topic_name,
 		Files:   make(map[string]*File),
 		Parts:   make(map[string]*Partition),
 		subList: make(map[string]*SubScription),
 	}
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + req.topic
+	str += "/" + name + "/" + topic_name
 	CreateList(str)
-	if req.key != "" {
-		part, file := NewPartition(req)
-		topic.Files[req.key] = file
-		topic.Parts[req.key] = part
-	}
 
 	return topic
+}
+
+func (t *Topic) PrepareAcceptHandle(in info) (ret string, err error) {
+	t.rmu.Lock()
+	partition, ok := t.Parts[in.part_name]
+	if !ok {
+		partition = NewPartition(t.Name, in.part_name)
+		t.Parts[in.part_name] = partition
+	}
+	t.rmu.Unlock()
+
+	return ret, err
+
+}
+
+func (t *Topic) HandleParttitions(Partitions map[string]PartNodeInfo) {
+	for part_name, _ := range Partitions {
+		_, ok := t.Parts[part_name]
+		if !ok {
+			part := NewPartition(t.Name, part_name)
+			// part.HandleBlocks(topic_name, part_name, partition.Blocks)
+
+			t.Parts[part_name] = part
+		} else {
+			DEBUG(dWarn, "This topic(%v) part(%v) had in s.topics\n", t.Name, part_name)
+		}
+	}
 }
 
 func (t *Topic) GetParts() map[string]*Partition {
@@ -69,17 +92,16 @@ func (t *Topic) GetConfig(sub string) *Config {
 	return t.subList[sub].GetConfig()
 }
 
-func (t *Topic) AddPartition(req push) {
-	part, _ := NewPartition(req)
-	t.Parts[req.key] = part
+func (t *Topic) AddPartition(part_name string) {
+	part := NewPartition(t.Name, part_name)
+	t.Parts[part_name] = part
 }
 
 func (t *Topic) addMessage(req push) error {
 	part, ok := t.Parts[req.key]
 	if !ok {
 		DEBUG(dError, "not find this part in add message\n")
-		part, file := NewPartition(req) //需要向sub中和config中加入一个partition
-		t.Files[req.key] = file
+		part := NewPartition(req.key) //需要向sub中和config中加入一个partition
 		t.Parts[req.key] = part
 	}
 
@@ -89,6 +111,11 @@ func (t *Topic) addMessage(req push) error {
 
 	return nil
 }
+
+const (
+	START = "start"
+	CLOSE = "close"
+)
 
 // 根据订阅选项生成订阅字符串
 // topic + "nil" + "ptp" (point to point consumer比partition为 1 : n)
@@ -158,30 +185,22 @@ type Partition struct {
 	queue       []Message
 	index       int64
 	start_index int64
+	state       string
 }
 
 // 创建新的分区对象
-func NewPartition(req push) (*Partition, *File) {
+func NewPartition(topic_name, part_name string) *Partition {
 	part := &Partition{
 		mu:    sync.RWMutex{},
-		key:   req.key,
-		queue: make([]Message, 50),
+		key:   part_name,
+		state: START,
+		//queue: make([]Message, 50),
 	}
 
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + req.topic + "/" + req.key + ".txt"
-	file, err := CreateFile(str)
-	part.file = NewFile(str)
-	part.fd = file
-	part.file_name = str
-	part.index = part.file.GetIndex(file)
-	part.start_index = part.index + 1
-	if err != nil {
-		fmt.Println("create ", str, "failed")
-	}
-	part.addMessage(req)
+	str += "/" + name + "/" + topic_name + "/" + part_name
 
-	return part, part.file
+	return part
 }
 
 // 检查是否存在path的文件，若不存在则错误，存在则创建一个File
