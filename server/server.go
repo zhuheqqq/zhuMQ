@@ -154,7 +154,7 @@ func (s *Server) HandleTopics(Topics map[string]TopNodeInfo) {
 		if !ok {
 			top := NewTopic(topic_name)
 			top.HandleParttitions(topic.Partitions)
-			s.HandleParttitions(topic_name, topic.Partitions)
+			s.topics[topic_name] = top
 		} else {
 			DEBUG(dWarn, "This topic(%v) had in s.topics\n", topic_name)
 		}

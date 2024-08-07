@@ -68,27 +68,6 @@ func (t *Topic) PrepareAcceptHandle(in info) (ret string, err error) {
 
 }
 
-func (p *Partition) StartGetMessage(file *File, fd *os.File, in info) string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	ret := ""
-	switch p.state {
-	case START:
-		ret = ErrHadStart
-	case CLOSE:
-		p.queue = make([]Message, 50)
-
-		p.state = START
-		p.file = file
-		p.fd = fd
-		p.file_name = in.file_name
-		p.index = file.GetIndex(fd)
-		p.start_index = p.index + 1
-		ret = OK
-	}
-	return ret
-}
-
 func (t *Topic) HandleParttitions(Partitions map[string]PartNodeInfo) {
 	for part_name, _ := range Partitions {
 		_, ok := t.Parts[part_name]
@@ -129,12 +108,12 @@ func (t *Topic) AddPartition(part_name string) {
 	t.Parts[part_name] = part
 }
 
-func (t *Topic) addMessage(req push) error {
-	part, ok := t.Parts[req.key]
+func (t *Topic) addMessage(in info) error {
+	part, ok := t.Parts[in.part_name]
 	if !ok {
 		DEBUG(dError, "not find this part in add message\n")
-		part := NewPartition(req.topic, req.key) //需要向sub中和config中加入一个partition
-		t.Parts[req.key] = part
+		part := NewPartition(in.topic_name, in.part_name) //需要向sub中和config中加入一个partition
+		t.Parts[in.part_name] = part
 	}
 
 	part.mu.Lock()
@@ -166,33 +145,33 @@ func GetStringfromSub(top_name, part_name string, option int8) string {
 }
 
 // 添加一个订阅，如果订阅不存在则创建新的订阅，更新分区中的消费者并进行负载均衡
-func (t *Topic) AddSubScription(req sub) (retsub *SubScription, err error) {
-	ret := GetStringfromSub(req.topic, req.key, req.option)
+func (t *Topic) AddSubScription(in info) (retsub *SubScription, err error) {
+	ret := GetStringfromSub(in.topic_name, in.part_name, in.option)
 	t.rmu.RLock()
 	subscription, ok := t.subList[ret]
 	t.rmu.RUnlock()
 
 	if !ok {
 		t.rmu.Lock()
-		subscription = NewSubScription(req, ret, t.Parts, t.Files)
+		subscription = NewSubScription(in, ret, t.Parts, t.Files)
 		t.subList[ret] = subscription
 		t.rmu.Unlock()
 	} else {
-		subscription.AddConsumerInGroup(req)
+		subscription.AddConsumerInGroup(in)
 	}
 
 	return subscription, nil
 }
 
 // 减少一个订阅，如果订阅存在则删除它，并进行负载均衡
-func (t *Topic) ReduceSubScription(req sub) (string, error) {
-	ret := GetStringfromSub(req.topic, req.key, req.option)
+func (t *Topic) ReduceSubScription(in info) (string, error) {
+	ret := GetStringfromSub(in.topic_name, in.part_name, in.option)
 	t.rmu.Lock()
 	subscription, ok := t.subList[ret]
 	if !ok {
 		return ret, errors.New("This Topic do not have this SubScription")
 	} else {
-		subscription.ReduceConsumer(req)
+		subscription.ReduceConsumer(in)
 	}
 	delete(t.subList, ret)
 	t.rmu.Unlock()
@@ -235,22 +214,43 @@ func NewPartition(topic_name, part_name string) *Partition {
 	return part
 }
 
+func (p *Partition) StartGetMessage(file *File, fd *os.File, in info) string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	ret := ""
+	switch p.state {
+	case START:
+		ret = ErrHadStart
+	case CLOSE:
+		p.queue = make([]Message, 50)
+
+		p.state = START
+		p.file = file
+		p.fd = fd
+		p.file_name = in.file_name
+		p.index = file.GetIndex(fd)
+		p.start_index = p.index + 1
+		ret = OK
+	}
+	return ret
+}
+
 // 检查是否存在path的文件，若不存在则错误，存在则创建一个File
 // 若path和partition的name相同，有就创建一个File，没有就创建一个这个名字的文件
-func (p *Partition) AddFile(path string) *File {
-	return
-}
+//func (p *Partition) AddFile(path string) *File {
+//	return
+//}
 
 // 检查state
 // 当接收数据达到一定数量将修改zookeeper上的index
-func (p *Partition) addMessage(req push) {
+func (p *Partition) addMessage(in info) {
 	p.mu.Lock()
 	p.index++
 	msg := Message{
 		Index:      p.index,
-		Topic_name: req.topic,
-		Part_name:  req.key,
-		Msg:        []byte(req.message),
+		Topic_name: in.topic_name,
+		Part_name:  in.part_name,
+		Msg:        []byte(in.message),
 	}
 
 	DEBUG(dLog, "part_name %v add message index is %v\n", p.key, p.index)
@@ -292,26 +292,40 @@ type SubScription struct {
 	groups     []*Group
 
 	//需要修改，分为多种订阅，每种订阅方式一种config
-	config     *Config
+	PTP_config *Config
 	partitions map[string]*Partition
 	Files      map[string]*File
 }
 
-func NewSubScription(req sub, name string, parts map[string]*Partition, files map[string]*File) *SubScription {
+func NewSubScription(in info, name string, parts map[string]*Partition, files map[string]*File) *SubScription {
 	sub := &SubScription{
 		rmu:        sync.RWMutex{},
 		name:       name,
-		topic_name: req.topic,
-		option:     req.option,
+		topic_name: in.topic_name,
+		option:     in.option,
 		partitions: parts,
 		Files:      files,
 	}
 
-	group := NewGroup(req.topic, req.consumer)
+	group := NewGroup(in.part_name, in.consumer)
 	sub.groups = append(sub.groups, group)
-	sub.config = NewConfig(req.topic, len(parts), sub.partitions, sub.Files)
 
 	return sub
+}
+
+// 当有消费者需要开始消费时，PTP
+// 若sub中该文件的config存在，则加入该config
+// 若sub中该文件的config不存在，则创建一个config，并加入
+func (s *SubScription) AddPTPConfig(in info, partition *Partition, file *File) (ret string, err error) {
+	if s.PTP_config == nil {
+		s.PTP_config = NewConfig(in.topic_name, 0, nil, nil)
+	}
+
+	err = s.PTP_config.AddPartition(in, partition, file)
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
 }
 
 // 关闭消费者，根据订阅选项处理不同的情况
@@ -331,44 +345,45 @@ func (s *SubScription) ShutdownConsumerInGroup(cli_name string) string {
 	return s.topic_name
 }
 
-func (s *SubScription) ReduceConsumer(req sub) {
+func (s *SubScription) ReduceConsumer(in info) {
 	s.rmu.Lock()
 	defer s.rmu.Unlock()
 
-	switch req.option {
+	switch in.option {
 	case TOPIC_NIL_PTP:
-		s.groups[0].DeleteClient(req.consumer)
-		s.config.DeleteCli(req.key, req.consumer) //delete config 中的 consumer
+		s.groups[0].DeleteClient(in.consumer)
+		s.PTP_config.DeleteCli(in.part_name, in.consumer) //delete config 中的 consumer
 	case TOPIC_KEY_PSB:
-		group := NewGroup(req.topic, req.consumer)
-		s.groups = append(s.groups, group)
+		for _, group := range s.groups {
+			group.DeleteClient(in.consumer)
+		}
 	}
 }
 
 // 恢复消费者，根据订阅选项处理不同的情况
-func (s *SubScription) RecoverConsumer(req sub) {
+func (s *SubScription) RecoverConsumer(in info) {
 	s.rmu.Lock()
 	defer s.rmu.Unlock()
 
-	switch req.option {
+	switch in.option {
 	case TOPIC_NIL_PTP:
-		s.groups[0].RecoverClient(req.consumer)
+		s.groups[0].RecoverClient(in.consumer)
 	case TOPIC_KEY_PSB:
-		group := NewGroup(req.topic, req.consumer)
+		group := NewGroup(in.topic_name, in.consumer)
 		s.groups = append(s.groups, group)
 	}
 }
 
 // 向订阅添加消费者
-func (s *SubScription) AddConsumerInGroup(req sub) {
+func (s *SubScription) AddConsumerInGroup(in info) {
 
 	s.rmu.Lock()
 	defer s.rmu.Unlock()
-	switch req.option {
+	switch in.option {
 	case TOPIC_NIL_PTP:
-		s.groups[0].AddClient(req.consumer)
+		s.groups[0].AddClient(in.consumer)
 	case TOPIC_KEY_PSB:
-		group := NewGroup(req.topic, req.consumer)
+		group := NewGroup(in.topic_name, in.consumer)
 		s.groups = append(s.groups, group)
 	}
 }
@@ -382,7 +397,7 @@ func (s *SubScription) AddConsumerInConfig(req startget, cli *client_operations.
 	switch req.option {
 	case TOPIC_NIL_PTP:
 
-		s.config.AddCli(req.part_name, req.cli_name, cli) //向config中ADD consumer
+		s.PTP_config.AddCli(req.part_name, req.cli_name, cli) //向config中ADD consumer
 	case TOPIC_KEY_PSB:
 		group := NewGroup(req.topic_name, req.cli_name)
 		s.groups = append(s.groups, group)
@@ -396,6 +411,8 @@ type Config struct {
 	part_num int  //partition数
 	cons_num int  //consumer 数
 	node_con bool //以消费者为节点还是以分区为节点进行负载均衡
+
+	part_close chan Part
 
 	PartToCon map[string][]string
 
@@ -424,18 +441,22 @@ func NewConfig(topic_name string, part_num int, partitions map[string]*Partition
 		consistent: NewConsistent(),
 	}
 
-	for partition_name := range partitions {
-		con.parts[partition_name] = NewPart(topic_name, partition_name, files[partition_name])
-	}
+	go con.GetCloseChan()
 
 	return con
+}
+
+func (c *Config) GetCloseChan() {
+	for close := range c.part_close {
+		c.DeletePartition(close.part_name, close.file)
+	}
 }
 
 func (s *SubScription) GetConfig() *Config {
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
 
-	return s.config
+	return s.PTP_config
 }
 
 // 向Clis加入此consumer的句柄，重新负载均衡，并修改Parts中的clis数组
@@ -469,15 +490,12 @@ func (c *Config) AddCli(part_name string, cli_name string, cli *client_operation
 func (c *Config) DeleteCli(part_name string, cli_name string) {
 	c.mu.Lock()
 
-	if c.cons_num-1 <= c.part_num && !c.node_con {
+	if c.cons_num <= c.part_num && !c.node_con {
 		c.node_con = true
 
 		// node from partition to consumer
-		c.consistent = TurnConsistent(GetClisArray(c.Clis))
+		c.consistent = TurnConsistent(GetConsumerArray(c.Clis))
 	}
-
-	c.cons_num--
-	delete(c.Clis, cli_name)
 
 	if c.node_con { //consumer is node
 		err := c.consistent.Reduce(cli_name)
@@ -497,12 +515,55 @@ func (c *Config) DeleteCli(part_name string, cli_name string) {
 	}
 }
 
-func (c *Config) AddPartition() {
+func (c *Config) AddPartition(in info, partition *Partition, file *File) error {
+	c.mu.Lock()
 
+	if c.cons_num < c.part_num+1 && !c.node_con {
+		c.node_con = true
+
+		//node from partition to consumer
+		c.consistent = TurnConsistent(GetConsumerArray(c.Clis))
+	}
+
+	c.part_num++
+	c.Partitions[in.part_name] = partition
+	c.Files[file.filename] = file
+
+	if !c.node_con {
+		err := c.consistent.Add(in.part_name)
+		if err != nil {
+			DEBUG(dError, err.Error())
+			return err
+		}
+	}
+	c.parts[in.part_name] = NewPart(in, file)
+	c.parts[in.part_name].Start(c.part_close)
+	c.mu.Unlock()
+
+	c.RebalancePtoC() //更新配置
+	c.UpdateParts()   //应用配置
+	return nil
 }
 
-func (c *Config) DeletePartition() {
+// part消费完成，移除config中的Partition和Part
+func (c *Config) DeletePartition(part_name string, file *File) {
+	c.mu.Lock()
 
+	c.part_num--
+	delete(c.Partitions, part_name)
+	delete(c.Files, file.filename)
+
+	if c.cons_num > c.part_num && c.node_con {
+		c.node_con = false
+
+		c.consistent = TurnConsistent(GetPartitionArray(c.Partitions))
+	}
+
+	//该Part协程已经关闭，该partition的文件已经消费完毕，
+	c.mu.Unlock()
+
+	c.RebalancePtoC() //更新配置
+	c.UpdateParts()   //应用配置
 }
 
 // 负载均衡，将调整后的配置存入PartToCon
@@ -582,6 +643,16 @@ func GetPartitionArray(partitions map[string]*Partition) []string {
 	var array []string
 
 	for key := range partitions {
+		array = append(array, key)
+	}
+
+	return array
+}
+
+func GetConsumerArray(consumers map[string]*client_operations.Client) []string {
+	var array []string
+
+	for key := range consumers {
 		array = append(array, key)
 	}
 

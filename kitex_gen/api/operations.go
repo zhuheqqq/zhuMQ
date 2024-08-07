@@ -3355,6 +3355,10 @@ func (p *CloseGetMessageResponse) Field1DeepEqual(src bool) bool {
 }
 
 type CloseAcceptRequest struct {
+	TopicName    string `thrift:"topic_name,1" frugal:"1,default,string" json:"topic_name"`
+	PartName     string `thrift:"part_name,2" frugal:"2,default,string" json:"part_name"`
+	Oldfilename  string `thrift:"oldfilename,3" frugal:"3,default,string" json:"oldfilename"`
+	Newfilename_ string `thrift:"newfilename,4" frugal:"4,default,string" json:"newfilename"`
 }
 
 func NewCloseAcceptRequest() *CloseAcceptRequest {
@@ -3364,7 +3368,40 @@ func NewCloseAcceptRequest() *CloseAcceptRequest {
 func (p *CloseAcceptRequest) InitDefault() {
 }
 
-var fieldIDToName_CloseAcceptRequest = map[int16]string{}
+func (p *CloseAcceptRequest) GetTopicName() (v string) {
+	return p.TopicName
+}
+
+func (p *CloseAcceptRequest) GetPartName() (v string) {
+	return p.PartName
+}
+
+func (p *CloseAcceptRequest) GetOldfilename() (v string) {
+	return p.Oldfilename
+}
+
+func (p *CloseAcceptRequest) GetNewfilename_() (v string) {
+	return p.Newfilename_
+}
+func (p *CloseAcceptRequest) SetTopicName(val string) {
+	p.TopicName = val
+}
+func (p *CloseAcceptRequest) SetPartName(val string) {
+	p.PartName = val
+}
+func (p *CloseAcceptRequest) SetOldfilename(val string) {
+	p.Oldfilename = val
+}
+func (p *CloseAcceptRequest) SetNewfilename_(val string) {
+	p.Newfilename_ = val
+}
+
+var fieldIDToName_CloseAcceptRequest = map[int16]string{
+	1: "topic_name",
+	2: "part_name",
+	3: "oldfilename",
+	4: "newfilename",
+}
 
 func (p *CloseAcceptRequest) Read(iprot thrift.TProtocol) (err error) {
 
@@ -3383,8 +3420,44 @@ func (p *CloseAcceptRequest) Read(iprot thrift.TProtocol) (err error) {
 		if fieldTypeId == thrift.STOP {
 			break
 		}
-		if err = iprot.Skip(fieldTypeId); err != nil {
-			goto SkipFieldTypeError
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
 		}
 		if err = iprot.ReadFieldEnd(); err != nil {
 			goto ReadFieldEndError
@@ -3399,8 +3472,10 @@ ReadStructBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-SkipFieldTypeError:
-	return thrift.PrependError(fmt.Sprintf("%T skip field type %d error", p, fieldTypeId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_CloseAcceptRequest[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
 ReadFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
@@ -3408,11 +3483,73 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
+func (p *CloseAcceptRequest) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.TopicName = _field
+	return nil
+}
+func (p *CloseAcceptRequest) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.PartName = _field
+	return nil
+}
+func (p *CloseAcceptRequest) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Oldfilename = _field
+	return nil
+}
+func (p *CloseAcceptRequest) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Newfilename_ = _field
+	return nil
+}
+
 func (p *CloseAcceptRequest) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
 	if err = oprot.WriteStructBegin("CloseAcceptRequest"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
 	}
 	if err = oprot.WriteFieldStop(); err != nil {
 		goto WriteFieldStopError
@@ -3423,10 +3560,80 @@ func (p *CloseAcceptRequest) Write(oprot thrift.TProtocol) (err error) {
 	return nil
 WriteStructBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
 WriteFieldStopError:
 	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
 WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *CloseAcceptRequest) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("topic_name", thrift.STRING, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.TopicName); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *CloseAcceptRequest) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("part_name", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.PartName); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *CloseAcceptRequest) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("oldfilename", thrift.STRING, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Oldfilename); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *CloseAcceptRequest) writeField4(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("newfilename", thrift.STRING, 4); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Newfilename_); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
 }
 
 func (p *CloseAcceptRequest) String() string {
@@ -3443,10 +3650,54 @@ func (p *CloseAcceptRequest) DeepEqual(ano *CloseAcceptRequest) bool {
 	} else if p == nil || ano == nil {
 		return false
 	}
+	if !p.Field1DeepEqual(ano.TopicName) {
+		return false
+	}
+	if !p.Field2DeepEqual(ano.PartName) {
+		return false
+	}
+	if !p.Field3DeepEqual(ano.Oldfilename) {
+		return false
+	}
+	if !p.Field4DeepEqual(ano.Newfilename_) {
+		return false
+	}
+	return true
+}
+
+func (p *CloseAcceptRequest) Field1DeepEqual(src string) bool {
+
+	if strings.Compare(p.TopicName, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *CloseAcceptRequest) Field2DeepEqual(src string) bool {
+
+	if strings.Compare(p.PartName, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *CloseAcceptRequest) Field3DeepEqual(src string) bool {
+
+	if strings.Compare(p.Oldfilename, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *CloseAcceptRequest) Field4DeepEqual(src string) bool {
+
+	if strings.Compare(p.Newfilename_, src) != 0 {
+		return false
+	}
 	return true
 }
 
 type CloseAcceptResponse struct {
+	Ret        bool  `thrift:"ret,1" frugal:"1,default,bool" json:"ret"`
+	Startindex int64 `thrift:"startindex,2" frugal:"2,default,i64" json:"startindex"`
+	Endindex   int64 `thrift:"endindex,3" frugal:"3,default,i64" json:"endindex"`
 }
 
 func NewCloseAcceptResponse() *CloseAcceptResponse {
@@ -3456,7 +3707,32 @@ func NewCloseAcceptResponse() *CloseAcceptResponse {
 func (p *CloseAcceptResponse) InitDefault() {
 }
 
-var fieldIDToName_CloseAcceptResponse = map[int16]string{}
+func (p *CloseAcceptResponse) GetRet() (v bool) {
+	return p.Ret
+}
+
+func (p *CloseAcceptResponse) GetStartindex() (v int64) {
+	return p.Startindex
+}
+
+func (p *CloseAcceptResponse) GetEndindex() (v int64) {
+	return p.Endindex
+}
+func (p *CloseAcceptResponse) SetRet(val bool) {
+	p.Ret = val
+}
+func (p *CloseAcceptResponse) SetStartindex(val int64) {
+	p.Startindex = val
+}
+func (p *CloseAcceptResponse) SetEndindex(val int64) {
+	p.Endindex = val
+}
+
+var fieldIDToName_CloseAcceptResponse = map[int16]string{
+	1: "ret",
+	2: "startindex",
+	3: "endindex",
+}
 
 func (p *CloseAcceptResponse) Read(iprot thrift.TProtocol) (err error) {
 
@@ -3475,8 +3751,36 @@ func (p *CloseAcceptResponse) Read(iprot thrift.TProtocol) (err error) {
 		if fieldTypeId == thrift.STOP {
 			break
 		}
-		if err = iprot.Skip(fieldTypeId); err != nil {
-			goto SkipFieldTypeError
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
 		}
 		if err = iprot.ReadFieldEnd(); err != nil {
 			goto ReadFieldEndError
@@ -3491,8 +3795,10 @@ ReadStructBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-SkipFieldTypeError:
-	return thrift.PrependError(fmt.Sprintf("%T skip field type %d error", p, fieldTypeId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_CloseAcceptResponse[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
 ReadFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
@@ -3500,11 +3806,58 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
+func (p *CloseAcceptResponse) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Ret = _field
+	return nil
+}
+func (p *CloseAcceptResponse) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Startindex = _field
+	return nil
+}
+func (p *CloseAcceptResponse) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Endindex = _field
+	return nil
+}
+
 func (p *CloseAcceptResponse) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
 	if err = oprot.WriteStructBegin("CloseAcceptResponse"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
 	}
 	if err = oprot.WriteFieldStop(); err != nil {
 		goto WriteFieldStopError
@@ -3515,10 +3868,63 @@ func (p *CloseAcceptResponse) Write(oprot thrift.TProtocol) (err error) {
 	return nil
 WriteStructBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
 WriteFieldStopError:
 	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
 WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *CloseAcceptResponse) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("ret", thrift.BOOL, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.Ret); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *CloseAcceptResponse) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("startindex", thrift.I64, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Startindex); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *CloseAcceptResponse) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("endindex", thrift.I64, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Endindex); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
 }
 
 func (p *CloseAcceptResponse) String() string {
@@ -3533,6 +3939,37 @@ func (p *CloseAcceptResponse) DeepEqual(ano *CloseAcceptResponse) bool {
 	if p == ano {
 		return true
 	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Ret) {
+		return false
+	}
+	if !p.Field2DeepEqual(ano.Startindex) {
+		return false
+	}
+	if !p.Field3DeepEqual(ano.Endindex) {
+		return false
+	}
+	return true
+}
+
+func (p *CloseAcceptResponse) Field1DeepEqual(src bool) bool {
+
+	if p.Ret != src {
+		return false
+	}
+	return true
+}
+func (p *CloseAcceptResponse) Field2DeepEqual(src int64) bool {
+
+	if p.Startindex != src {
+		return false
+	}
+	return true
+}
+func (p *CloseAcceptResponse) Field3DeepEqual(src int64) bool {
+
+	if p.Endindex != src {
 		return false
 	}
 	return true
