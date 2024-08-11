@@ -12,6 +12,7 @@ var mu sync.Mutex
 var errorCount int // for TestCapital
 var checked map[reflect.Type]bool
 
+// 编码器
 type LabEncoder struct {
 	gob *gob.Encoder
 }
@@ -32,6 +33,7 @@ func (enc *LabEncoder) EncodeValue(value reflect.Value) error {
 	return enc.gob.EncodeValue(value)
 }
 
+// 解码器
 type LabDecoder struct {
 	gob *gob.Decoder
 }

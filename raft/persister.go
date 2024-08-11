@@ -2,10 +2,11 @@ package raft
 
 import "sync"
 
+// 保存管理raft协议中的持久化状态
 type Persister struct {
 	mu        sync.Mutex
-	raftstate []byte
-	snapshot  []byte
+	raftstate []byte //保存raft协议状态 例如日志和当前任期
+	snapshot  []byte //保存系统快照，用于状态恢复
 }
 
 func MakePersister() *Persister {
@@ -22,7 +23,7 @@ func (ps *Persister) Copy() *Persister {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	np := MakePersister()
-	np.raftstate = ps.raftstate
+	np.raftstate = ps.raftstate //浅拷贝，赋值引用
 	np.snapshot = ps.snapshot
 	return np
 }
