@@ -98,13 +98,6 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 			Ret: false,
 		}, nil
 	}
-	if err == nil {
-		return &api.PullResponse{Message: ret.message}, nil
-	}
-	DEBUG(dError, err.Error())
-	return &api.PullResponse{
-		Ret: false,
-	}, nil
 
 	return &api.PullResponse{
 		Msgs:       ret.array,

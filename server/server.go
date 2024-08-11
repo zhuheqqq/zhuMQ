@@ -23,12 +23,13 @@ const (
 
 // 一个topic包含多个消息分区
 type Server struct {
-	Name      string
-	topics    map[string]*Topic
-	consumers map[string]*Client
-	zk        zookeeper.ZK
-	zkclient  zkserver_operations.Client
-	mu        sync.RWMutex
+	Name        string
+	topics      map[string]*Topic
+	consumers   map[string]*Client
+	parts_rafts *parts_raft
+	zk          zookeeper.ZK
+	zkclient    zkserver_operations.Client
+	mu          sync.RWMutex
 }
 
 type Key struct {
@@ -71,6 +72,7 @@ type info struct {
 	new_name   string
 	option     int8
 	offset     int64
+	size       int8
 	message    string
 
 	producer string
@@ -99,6 +101,10 @@ func (s *Server) make(opt Options) {
 	name = GetIpport()
 	s.CheckList()
 	s.Name = opt.Name
+
+	//本地创建parts——raft，为raft同步做准备
+	s.parts_rafts = NewParts_Raft()
+	go s.parts_rafts.make(opt.Name, opt.Raft_Host_Port)
 
 	//连接zkServer，并将自己的Info发送到zkServer,
 	zkclient, err := zkserver_operations.NewClient(opt.Name, client.WithHostPorts(opt.Zkserver_Host_Port))
