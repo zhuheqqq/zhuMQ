@@ -14,7 +14,7 @@ import (
 // 一个是客户端（生产者和消费者连接的模式，负责订阅等请求和对zookeeper的请求）使用的server
 // 另一个是Broker获取Zookeeper信息和调度各个Broker的调度者
 type RPCServer struct {
-	name     string
+	//name     string
 	srv_cli  server.Server
 	srv_bro  server.Server
 	zkinfo   zookeeper.ZKInfo
@@ -29,7 +29,7 @@ func NewRpcServer(zkinfo zookeeper.ZKInfo) RPCServer {
 	}
 }
 
-func (s *RPCServer) Start(opts_cli, opts_bro []server.Option, opt Options) error {
+func (s *RPCServer) Start(opts_cli, opts_zks []server.Option, opt Options) error {
 
 	switch opt.Tag {
 	case BROKER:
@@ -39,7 +39,7 @@ func (s *RPCServer) Start(opts_cli, opts_bro []server.Option, opt Options) error
 		s.zkserver = NewZKServer(s.zkinfo)
 		s.zkserver.make(opt)
 
-		srv_bro := zkserver_operations.NewServer(s, opts_bro...)
+		srv_bro := zkserver_operations.NewServer(s, opts_zks...)
 		s.srv_bro = srv_bro
 		DEBUG(dLog, "Broker start rpcserver for brokers\n")
 		go func() {
@@ -90,12 +90,27 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 		consumer:   req.Consumer,
 		topic_name: req.Topic,
 		part_name:  req.Key,
+		size:       req.Size,
 	})
+	if err == nil {
+		DEBUG(dError, err.Error())
+		return &api.PullResponse{
+			Ret: false,
+		}, nil
+	}
 	if err == nil {
 		return &api.PullResponse{Message: ret.message}, nil
 	}
+	DEBUG(dError, err.Error())
 	return &api.PullResponse{
-		Message: "error", //有错误默认返回error
+		Ret: false,
+	}, nil
+
+	return &api.PullResponse{
+		Msgs:       ret.array,
+		StartIndex: ret.start_index,
+		EndIndex:   ret.end_index,
+		Size:       ret.size,
 	}, nil
 }
 
@@ -244,7 +259,7 @@ func (s *RPCServer) BroGetConfig(ctx context.Context, req *api.BroGetConfigReque
 // 订阅
 func (s *RPCServer) Sub(ctx context.Context, req *api.SubRequest) (resp *api.SubResponse, err error) {
 
-	err = s.zkserver.SubHandle(info_in{
+	err = s.zkserver.SubHandle(Info_in{
 		cli_name:   req.Consumer,
 		topic_name: req.Topic,
 		part_name:  req.Key,

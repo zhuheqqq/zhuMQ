@@ -11,9 +11,12 @@ import (
 )
 
 const (
-	TOPIC_NIL_PTP = 1 //
-	TOPIC_NIL_PSB = 2
-	TOPIC_KEY_PSB = 3 //map[cli_name]offset in a partition
+	TOPIC_NIL_PTP_PUSH = 1 //PTP---Push
+	TOPIC_NIL_PTP_PULL = 2
+	TOPIC_KEY_PSB_PUSH = 3 //map[cli_name]offset in a partition
+	TOPIC_KEY_PSB_PULL = 4
+
+	TOPIC_NIL_PSB = 10
 	VERTUAL_10    = 10
 	VERTUAL_20    = 20
 
@@ -68,8 +71,62 @@ func (t *Topic) PrepareAcceptHandle(in info) (ret string, err error) {
 
 }
 
+func (t *Topic) PrepareSendHandle(in info) (ret string, err error) {
+	sub_name := GetStringfromSub(in.topic_name, in.part_name, in.option)
+
+	t.rmu.Lock()
+	//检查或创建partition
+	partition, ok := t.Parts[in.part_name]
+	if !ok {
+		partition = NewPartition(t.Name, in.part_name)
+		t.Parts[in.part_name] = partition
+	}
+
+	//检查文件是否存在
+	file, ok := t.Files[in.file_name]
+	if !ok {
+		str, _ := os.Getwd()
+		str += "/" + name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+		file, fd := NewFile(str)
+		fd.Close()
+		t.Files[str] = file
+	}
+
+	//检查或创建sub
+	sub, ok := t.subList[sub_name]
+	if !ok {
+		var sub = NewSubScription(in, sub_name, t.Parts, t.Files)
+		t.subList[sub_name] = sub
+	}
+	//在sub中创建对应文件的config，来等待startget
+	t.rmu.Unlock()
+	if in.option == 1 {
+		ret, err = sub.AddPTPConfig(in, partition, file)
+	} else if in.option == 3 {
+		sub.AddPSBConfig(in, in.part_name, file)
+	} else if in.option == 2 || in.option == 4 { //PTP_PULL  ||  PSB_PULL
+		//在sub中创建一个Node用来保存该consumer的Pull的文件描述符等信息
+		sub.AddNode(in, file)
+	}
+
+	return ret, err
+}
+
+func (t *Topic) HandleStartToGet(sub_name string, in info, cli *client_operations.Client) (err error) {
+	t.rmu.RLock()
+	defer t.rmu.RUnlock()
+	sub, ok := t.subList[sub_name]
+	if !ok {
+		ret := "this topic not have this subscription"
+		DEBUG(dError, "%v\n", ret)
+		return errors.New(ret)
+	}
+	sub.AddConsumerInConfig(in, cli)
+	return nil
+}
+
 func (t *Topic) HandleParttitions(Partitions map[string]PartNodeInfo) {
-	for part_name, _ := range Partitions {
+	for part_name := range Partitions {
 		_, ok := t.Parts[part_name]
 		if !ok {
 			part := NewPartition(t.Name, part_name)
@@ -123,6 +180,19 @@ func (t *Topic) addMessage(in info) error {
 	return nil
 }
 
+func (t *Topic) PullMessage(in info) (MSGS, error) {
+	sub_name := GetStringfromSub(in.topic_name, in.part_name, in.option)
+	t.rmu.RLock()
+	sub, ok := t.subList[sub_name]
+	t.rmu.RUnlock()
+	if !ok {
+		DEBUG(dError, "this topic is not have sub(%v)\n", sub_name)
+		return MSGS{}, errors.New("this topic is not have this sub")
+	}
+
+	return sub.PullMsgs(in)
+}
+
 const (
 	START = "start"
 	CLOSE = "close"
@@ -134,12 +204,12 @@ const (
 // topic + "nil" + "psb" (pub and sub consumer比partition为 n : n)广播分发
 func GetStringfromSub(top_name, part_name string, option int8) string {
 	ret := top_name
-	if option == TOPIC_NIL_PTP { // 订阅发布模式
+	if option == TOPIC_NIL_PTP_PUSH || option == TOPIC_NIL_PTP_PULL { // 订阅发布模式
 		ret = ret + "NIL" + "ptp" //point to point
-	} else if option == TOPIC_KEY_PSB {
+	} else if option == TOPIC_KEY_PSB_PUSH || option == TOPIC_KEY_PSB_PULL {
 		ret = ret + part_name + "psb" //pub and sub
-	} else if option == TOPIC_NIL_PSB {
-		ret = ret + "NIL" + "psb"
+		//} else if option == TOPIC_NIL_PSB {
+		//	ret = ret + "NIL" + "psb"
 	}
 	return ret
 }
@@ -293,18 +363,26 @@ type SubScription struct {
 
 	//需要修改，分为多种订阅，每种订阅方式一种config
 	PTP_config *Config
+	//partition_name + consumer_name  to config
+	PSB_configs map[string]*PSBConfig_PUSH
+
+	//一个consumer向文件描述符等的映射,每次pull将使用上次的文件描述符等资源
+	//topic+partition+consumer   to  Node
+	nodes      map[string]*Node
 	partitions map[string]*Partition
 	Files      map[string]*File
 }
 
 func NewSubScription(in info, name string, parts map[string]*Partition, files map[string]*File) *SubScription {
 	sub := &SubScription{
-		rmu:        sync.RWMutex{},
-		name:       name,
-		topic_name: in.topic_name,
-		option:     in.option,
-		partitions: parts,
-		Files:      files,
+		rmu:         sync.RWMutex{},
+		name:        name,
+		topic_name:  in.topic_name,
+		option:      in.option,
+		partitions:  parts,
+		Files:       files,
+		PTP_config:  nil,
+		PSB_configs: make(map[string]*PSBConfig_PUSH),
 	}
 
 	group := NewGroup(in.part_name, in.consumer)
@@ -317,15 +395,42 @@ func NewSubScription(in info, name string, parts map[string]*Partition, files ma
 // 若sub中该文件的config存在，则加入该config
 // 若sub中该文件的config不存在，则创建一个config，并加入
 func (s *SubScription) AddPTPConfig(in info, partition *Partition, file *File) (ret string, err error) {
+	s.rmu.RLock()
 	if s.PTP_config == nil {
 		s.PTP_config = NewConfig(in.topic_name, 0, nil, nil)
 	}
 
 	err = s.PTP_config.AddPartition(in, partition, file)
+	s.rmu.RUnlock()
 	if err != nil {
 		return ret, err
 	}
 	return ret, nil
+}
+
+func (s *SubScription) AddPSBConfig(in info, part_name string, file *File) {
+
+	s.rmu.Lock()
+	_, ok := s.PSB_configs[part_name+in.consumer]
+	if !ok {
+		config := NewPSBConfigPush(in, file)
+		s.PSB_configs[part_name+in.consumer] = config
+	} else {
+		DEBUG(dLog, "This PSB has Start\n")
+	}
+
+	s.rmu.Unlock()
+}
+
+func (s *SubScription) AddNode(in info, file *File) {
+	str := in.topic_name + in.part_name + in.consumer
+	s.rmu.Lock()
+	_, ok := s.nodes[str]
+	if !ok {
+		node := NewNode(in, file)
+		s.nodes[str] = node
+	}
+	s.rmu.Unlock()
 }
 
 // 关闭消费者，根据订阅选项处理不同的情况
@@ -334,9 +439,9 @@ func (s *SubScription) ShutdownConsumerInGroup(cli_name string) string {
 	defer s.rmu.Unlock()
 
 	switch s.option {
-	case TOPIC_NIL_PTP: // point to point just one group
+	case TOPIC_NIL_PTP_PUSH: // point to point just one group
 		s.groups[0].DownClient(cli_name)
-	case TOPIC_KEY_PSB:
+	case TOPIC_KEY_PSB_PUSH:
 		for _, group := range s.groups {
 			group.DownClient(cli_name)
 		}
@@ -350,10 +455,10 @@ func (s *SubScription) ReduceConsumer(in info) {
 	defer s.rmu.Unlock()
 
 	switch in.option {
-	case TOPIC_NIL_PTP:
+	case TOPIC_NIL_PTP_PUSH:
 		s.groups[0].DeleteClient(in.consumer)
 		s.PTP_config.DeleteCli(in.part_name, in.consumer) //delete config 中的 consumer
-	case TOPIC_KEY_PSB:
+	case TOPIC_KEY_PSB_PUSH:
 		for _, group := range s.groups {
 			group.DeleteClient(in.consumer)
 		}
@@ -366,9 +471,9 @@ func (s *SubScription) RecoverConsumer(in info) {
 	defer s.rmu.Unlock()
 
 	switch in.option {
-	case TOPIC_NIL_PTP:
+	case TOPIC_NIL_PTP_PUSH:
 		s.groups[0].RecoverClient(in.consumer)
-	case TOPIC_KEY_PSB:
+	case TOPIC_KEY_PSB_PUSH:
 		group := NewGroup(in.topic_name, in.consumer)
 		s.groups = append(s.groups, group)
 	}
@@ -380,28 +485,43 @@ func (s *SubScription) AddConsumerInGroup(in info) {
 	s.rmu.Lock()
 	defer s.rmu.Unlock()
 	switch in.option {
-	case TOPIC_NIL_PTP:
+	case TOPIC_NIL_PTP_PUSH:
 		s.groups[0].AddClient(in.consumer)
-	case TOPIC_KEY_PSB:
+	case TOPIC_KEY_PSB_PUSH:
 		group := NewGroup(in.topic_name, in.consumer)
 		s.groups = append(s.groups, group)
 	}
 }
 
 // 将config中添加consumer   当consumer StartGet是才调用
-func (s *SubScription) AddConsumerInConfig(req startget, cli *client_operations.Client) {
+func (s *SubScription) AddConsumerInConfig(in info, cli *client_operations.Client) {
 
 	s.rmu.Lock()
 	defer s.rmu.Unlock()
 
-	switch req.option {
-	case TOPIC_NIL_PTP:
+	switch in.option {
+	case TOPIC_NIL_PTP_PUSH:
 
-		s.PTP_config.AddCli(req.part_name, req.cli_name, cli) //向config中ADD consumer
-	case TOPIC_KEY_PSB:
-		group := NewGroup(req.topic_name, req.cli_name)
-		s.groups = append(s.groups, group)
+		s.PTP_config.AddCli(in.part_name, in.consumer, cli) //向config中ADD consumer
+	case TOPIC_KEY_PSB_PUSH:
+		config, ok := s.PSB_configs[in.part_name+in.consumer]
+		if !ok {
+			DEBUG(dError, "this PSBconfig PUSH id not been\n")
+		}
+		config.Start(in, cli)
 	}
+}
+
+func (s *SubScription) PullMsgs(in info) (MSGS, error) {
+	node_name := in.topic_name + in.part_name + in.consumer
+	s.rmu.RLock()
+	node, ok := s.nodes[node_name]
+	s.rmu.RUnlock()
+	if !ok {
+		DEBUG(dError, "this sub has not have this node(%v)\n", node_name)
+		return MSGS{}, errors.New("this sub has not have this node")
+	}
+	return node.ReadMSGS(in)
 }
 
 // 提供一个线程安全的配置管理机制，用于管理消息传递系统中的分区和消费者的关系
@@ -412,7 +532,7 @@ type Config struct {
 	cons_num int  //consumer 数
 	node_con bool //以消费者为节点还是以分区为节点进行负载均衡
 
-	part_close chan Part
+	part_close chan *Part
 
 	PartToCon map[string][]string
 
@@ -433,6 +553,7 @@ func NewConfig(topic_name string, part_num int, partitions map[string]*Partition
 		cons_num: 0,
 		node_con: true,
 
+		part_close: make(chan *Part),
 		PartToCon:  make(map[string][]string),
 		Files:      files,
 		Partitions: partitions,
@@ -441,12 +562,12 @@ func NewConfig(topic_name string, part_num int, partitions map[string]*Partition
 		consistent: NewConsistent(),
 	}
 
-	go con.GetCloseChan()
+	go con.GetCloseChan(con.part_close)
 
 	return con
 }
 
-func (c *Config) GetCloseChan() {
+func (c *Config) GetCloseChan(ch chan *Part) {
 	for close := range c.part_close {
 		c.DeletePartition(close.part_name, close.file)
 	}
@@ -753,4 +874,39 @@ func (c *Consistent) getPosition(hash uint32) int {
 	} else {
 		return len(c.hashSortedNodes) - 1
 	}
+}
+
+type PSBConfig_PUSH struct {
+	mu sync.RWMutex
+
+	part_close chan *Part
+	file       *File
+
+	Cli  *client_operations.Client
+	part *Part //PTP的Part   partition_name to Part
+}
+
+func NewPSBConfigPush(in info, file *File) *PSBConfig_PUSH {
+	ret := &PSBConfig_PUSH{
+		mu:         sync.RWMutex{},
+		part_close: make(chan *Part),
+		file:       file,
+		part:       NewPart(in, file),
+	}
+
+	// ret.part.Start(ret.part_close)
+
+	return ret
+}
+
+func (pc *PSBConfig_PUSH) Start(in info, cli *client_operations.Client) {
+	pc.mu.Lock()
+	pc.Cli = cli
+	var names []string
+	clis := make(map[string]*client_operations.Client)
+	names = append(names, in.consumer)
+	clis[in.consumer] = cli
+	pc.part.UpdateClis(names, clis)
+	pc.part.Start(pc.part_close)
+	pc.mu.Unlock()
 }

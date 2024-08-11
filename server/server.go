@@ -173,7 +173,7 @@ func (s *Server) StartGet(in info) (err error) {
 	*/
 	err = nil
 	switch in.option {
-	case TOPIC_NIL_PTP:
+	case TOPIC_NIL_PTP_PUSH:
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 		//已经由zkserver检查过是否订阅
@@ -181,7 +181,7 @@ func (s *Server) StartGet(in info) (err error) {
 		//添加到Config后会进行负载均衡，生成新的配置，然后执行新的配置
 		return s.topics[in.topic_name].HandleStartToGet(sub_name, in, s.consumers[in.consumer].GetCli())
 
-	case TOPIC_KEY_PSB:
+	case TOPIC_KEY_PSB_PUSH:
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 
@@ -336,6 +336,18 @@ func (s *Server) PushHandle(in info) error {
 	return nil
 }
 
-func (s *Server) PullHandle(in info) (retpull, error) {
-	return retpull{}, nil
+func (s *Server) PullHandle(in info) (MSGS, error) {
+	/*
+		读取index，获得上次的index，写如zookeeper中
+
+	*/
+
+	s.mu.RLock()
+	topic, ok := s.topics[in.topic_name]
+	s.mu.RUnlock()
+	if !ok {
+		DEBUG(dError, "this topic is not in this broker\n")
+		return MSGS{}, errors.New("this topic is not in this broker\n")
+	}
+	return topic.PullMessage(in)
 }
