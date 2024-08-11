@@ -327,7 +327,8 @@ func (p *Partition) addMessage(in info) {
 
 	p.queue = append(p.queue, msg) // 将新创建的消息对象添加到队列中
 
-	if p.index-p.start_index >= 10 {
+	//达到一定大小后写入磁盘
+	if p.index-p.start_index >= VERTUAL_10 {
 		var msg []Message
 		for i := 0; i < VERTUAL_10; i++ {
 			msg = append(msg, p.queue[i])
