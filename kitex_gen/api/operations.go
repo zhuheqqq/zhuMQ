@@ -15,6 +15,7 @@ type PushRequest struct {
 	Topic    string `thrift:"topic,2" frugal:"2,default,string" json:"topic"`
 	Key      string `thrift:"key,3" frugal:"3,default,string" json:"key"`
 	Message  string `thrift:"message,4" frugal:"4,default,string" json:"message"`
+	Index    int64  `thrift:"index,5" frugal:"5,default,i64" json:"index"`
 }
 
 func NewPushRequest() *PushRequest {
@@ -39,6 +40,10 @@ func (p *PushRequest) GetKey() (v string) {
 func (p *PushRequest) GetMessage() (v string) {
 	return p.Message
 }
+
+func (p *PushRequest) GetIndex() (v int64) {
+	return p.Index
+}
 func (p *PushRequest) SetProducer(val string) {
 	p.Producer = val
 }
@@ -51,12 +56,16 @@ func (p *PushRequest) SetKey(val string) {
 func (p *PushRequest) SetMessage(val string) {
 	p.Message = val
 }
+func (p *PushRequest) SetIndex(val int64) {
+	p.Index = val
+}
 
 var fieldIDToName_PushRequest = map[int16]string{
 	1: "producer",
 	2: "topic",
 	3: "key",
 	4: "message",
+	5: "index",
 }
 
 func (p *PushRequest) Read(iprot thrift.TProtocol) (err error) {
@@ -105,6 +114,14 @@ func (p *PushRequest) Read(iprot thrift.TProtocol) (err error) {
 		case 4:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField5(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -183,6 +200,17 @@ func (p *PushRequest) ReadField4(iprot thrift.TProtocol) error {
 	p.Message = _field
 	return nil
 }
+func (p *PushRequest) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Index = _field
+	return nil
+}
 
 func (p *PushRequest) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -204,6 +232,10 @@ func (p *PushRequest) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField4(oprot); err != nil {
 			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
 			goto WriteFieldError
 		}
 	}
@@ -292,6 +324,23 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
 }
 
+func (p *PushRequest) writeField5(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("index", thrift.I64, 5); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Index); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
 func (p *PushRequest) String() string {
 	if p == nil {
 		return "<nil>"
@@ -316,6 +365,9 @@ func (p *PushRequest) DeepEqual(ano *PushRequest) bool {
 		return false
 	}
 	if !p.Field4DeepEqual(ano.Message) {
+		return false
+	}
+	if !p.Field5DeepEqual(ano.Index) {
 		return false
 	}
 	return true
@@ -345,6 +397,13 @@ func (p *PushRequest) Field3DeepEqual(src string) bool {
 func (p *PushRequest) Field4DeepEqual(src string) bool {
 
 	if strings.Compare(p.Message, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *PushRequest) Field5DeepEqual(src int64) bool {
+
+	if p.Index != src {
 		return false
 	}
 	return true
@@ -9685,6 +9744,1012 @@ func (p *CreatePartResponse) Field2DeepEqual(src string) bool {
 	return true
 }
 
+type UpdateOffsetRequest struct {
+	Topic  string `thrift:"topic,1" frugal:"1,default,string" json:"topic"`
+	Part   string `thrift:"part,2" frugal:"2,default,string" json:"part"`
+	Offset int64  `thrift:"offset,3" frugal:"3,default,i64" json:"offset"`
+}
+
+func NewUpdateOffsetRequest() *UpdateOffsetRequest {
+	return &UpdateOffsetRequest{}
+}
+
+func (p *UpdateOffsetRequest) InitDefault() {
+}
+
+func (p *UpdateOffsetRequest) GetTopic() (v string) {
+	return p.Topic
+}
+
+func (p *UpdateOffsetRequest) GetPart() (v string) {
+	return p.Part
+}
+
+func (p *UpdateOffsetRequest) GetOffset() (v int64) {
+	return p.Offset
+}
+func (p *UpdateOffsetRequest) SetTopic(val string) {
+	p.Topic = val
+}
+func (p *UpdateOffsetRequest) SetPart(val string) {
+	p.Part = val
+}
+func (p *UpdateOffsetRequest) SetOffset(val int64) {
+	p.Offset = val
+}
+
+var fieldIDToName_UpdateOffsetRequest = map[int16]string{
+	1: "topic",
+	2: "part",
+	3: "offset",
+}
+
+func (p *UpdateOffsetRequest) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_UpdateOffsetRequest[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *UpdateOffsetRequest) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Topic = _field
+	return nil
+}
+func (p *UpdateOffsetRequest) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Part = _field
+	return nil
+}
+func (p *UpdateOffsetRequest) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Offset = _field
+	return nil
+}
+
+func (p *UpdateOffsetRequest) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("UpdateOffsetRequest"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *UpdateOffsetRequest) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("topic", thrift.STRING, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Topic); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *UpdateOffsetRequest) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("part", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Part); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *UpdateOffsetRequest) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("offset", thrift.I64, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Offset); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *UpdateOffsetRequest) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("UpdateOffsetRequest(%+v)", *p)
+
+}
+
+func (p *UpdateOffsetRequest) DeepEqual(ano *UpdateOffsetRequest) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Topic) {
+		return false
+	}
+	if !p.Field2DeepEqual(ano.Part) {
+		return false
+	}
+	if !p.Field3DeepEqual(ano.Offset) {
+		return false
+	}
+	return true
+}
+
+func (p *UpdateOffsetRequest) Field1DeepEqual(src string) bool {
+
+	if strings.Compare(p.Topic, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *UpdateOffsetRequest) Field2DeepEqual(src string) bool {
+
+	if strings.Compare(p.Part, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *UpdateOffsetRequest) Field3DeepEqual(src int64) bool {
+
+	if p.Offset != src {
+		return false
+	}
+	return true
+}
+
+type UpdateOffsetResponse struct {
+	Ret bool `thrift:"ret,1" frugal:"1,default,bool" json:"ret"`
+}
+
+func NewUpdateOffsetResponse() *UpdateOffsetResponse {
+	return &UpdateOffsetResponse{}
+}
+
+func (p *UpdateOffsetResponse) InitDefault() {
+}
+
+func (p *UpdateOffsetResponse) GetRet() (v bool) {
+	return p.Ret
+}
+func (p *UpdateOffsetResponse) SetRet(val bool) {
+	p.Ret = val
+}
+
+var fieldIDToName_UpdateOffsetResponse = map[int16]string{
+	1: "ret",
+}
+
+func (p *UpdateOffsetResponse) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_UpdateOffsetResponse[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *UpdateOffsetResponse) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Ret = _field
+	return nil
+}
+
+func (p *UpdateOffsetResponse) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("UpdateOffsetResponse"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *UpdateOffsetResponse) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("ret", thrift.BOOL, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.Ret); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *UpdateOffsetResponse) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("UpdateOffsetResponse(%+v)", *p)
+
+}
+
+func (p *UpdateOffsetResponse) DeepEqual(ano *UpdateOffsetResponse) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Ret) {
+		return false
+	}
+	return true
+}
+
+func (p *UpdateOffsetResponse) Field1DeepEqual(src bool) bool {
+
+	if p.Ret != src {
+		return false
+	}
+	return true
+}
+
+type SetPartitionStateRequest struct {
+	Topic     string `thrift:"topic,1" frugal:"1,default,string" json:"topic"`
+	Partition string `thrift:"partition,2" frugal:"2,default,string" json:"partition"`
+	Option    int8   `thrift:"option,3" frugal:"3,default,i8" json:"option"`
+	Dupnum    int8   `thrift:"dupnum,4" frugal:"4,default,i8" json:"dupnum"`
+}
+
+func NewSetPartitionStateRequest() *SetPartitionStateRequest {
+	return &SetPartitionStateRequest{}
+}
+
+func (p *SetPartitionStateRequest) InitDefault() {
+}
+
+func (p *SetPartitionStateRequest) GetTopic() (v string) {
+	return p.Topic
+}
+
+func (p *SetPartitionStateRequest) GetPartition() (v string) {
+	return p.Partition
+}
+
+func (p *SetPartitionStateRequest) GetOption() (v int8) {
+	return p.Option
+}
+
+func (p *SetPartitionStateRequest) GetDupnum() (v int8) {
+	return p.Dupnum
+}
+func (p *SetPartitionStateRequest) SetTopic(val string) {
+	p.Topic = val
+}
+func (p *SetPartitionStateRequest) SetPartition(val string) {
+	p.Partition = val
+}
+func (p *SetPartitionStateRequest) SetOption(val int8) {
+	p.Option = val
+}
+func (p *SetPartitionStateRequest) SetDupnum(val int8) {
+	p.Dupnum = val
+}
+
+var fieldIDToName_SetPartitionStateRequest = map[int16]string{
+	1: "topic",
+	2: "partition",
+	3: "option",
+	4: "dupnum",
+}
+
+func (p *SetPartitionStateRequest) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.BYTE {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.BYTE {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SetPartitionStateRequest[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *SetPartitionStateRequest) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Topic = _field
+	return nil
+}
+func (p *SetPartitionStateRequest) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Partition = _field
+	return nil
+}
+func (p *SetPartitionStateRequest) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field int8
+	if v, err := iprot.ReadByte(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Option = _field
+	return nil
+}
+func (p *SetPartitionStateRequest) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field int8
+	if v, err := iprot.ReadByte(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Dupnum = _field
+	return nil
+}
+
+func (p *SetPartitionStateRequest) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("SetPartitionStateRequest"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *SetPartitionStateRequest) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("topic", thrift.STRING, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Topic); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *SetPartitionStateRequest) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("partition", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Partition); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *SetPartitionStateRequest) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("option", thrift.BYTE, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteByte(p.Option); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *SetPartitionStateRequest) writeField4(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("dupnum", thrift.BYTE, 4); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteByte(p.Dupnum); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *SetPartitionStateRequest) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("SetPartitionStateRequest(%+v)", *p)
+
+}
+
+func (p *SetPartitionStateRequest) DeepEqual(ano *SetPartitionStateRequest) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Topic) {
+		return false
+	}
+	if !p.Field2DeepEqual(ano.Partition) {
+		return false
+	}
+	if !p.Field3DeepEqual(ano.Option) {
+		return false
+	}
+	if !p.Field4DeepEqual(ano.Dupnum) {
+		return false
+	}
+	return true
+}
+
+func (p *SetPartitionStateRequest) Field1DeepEqual(src string) bool {
+
+	if strings.Compare(p.Topic, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *SetPartitionStateRequest) Field2DeepEqual(src string) bool {
+
+	if strings.Compare(p.Partition, src) != 0 {
+		return false
+	}
+	return true
+}
+func (p *SetPartitionStateRequest) Field3DeepEqual(src int8) bool {
+
+	if p.Option != src {
+		return false
+	}
+	return true
+}
+func (p *SetPartitionStateRequest) Field4DeepEqual(src int8) bool {
+
+	if p.Dupnum != src {
+		return false
+	}
+	return true
+}
+
+type SetPartitionStateResponse struct {
+	Ret bool   `thrift:"ret,1" frugal:"1,default,bool" json:"ret"`
+	Err string `thrift:"err,2" frugal:"2,default,string" json:"err"`
+}
+
+func NewSetPartitionStateResponse() *SetPartitionStateResponse {
+	return &SetPartitionStateResponse{}
+}
+
+func (p *SetPartitionStateResponse) InitDefault() {
+}
+
+func (p *SetPartitionStateResponse) GetRet() (v bool) {
+	return p.Ret
+}
+
+func (p *SetPartitionStateResponse) GetErr() (v string) {
+	return p.Err
+}
+func (p *SetPartitionStateResponse) SetRet(val bool) {
+	p.Ret = val
+}
+func (p *SetPartitionStateResponse) SetErr(val string) {
+	p.Err = val
+}
+
+var fieldIDToName_SetPartitionStateResponse = map[int16]string{
+	1: "ret",
+	2: "err",
+}
+
+func (p *SetPartitionStateResponse) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SetPartitionStateResponse[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *SetPartitionStateResponse) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Ret = _field
+	return nil
+}
+func (p *SetPartitionStateResponse) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Err = _field
+	return nil
+}
+
+func (p *SetPartitionStateResponse) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("SetPartitionStateResponse"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *SetPartitionStateResponse) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("ret", thrift.BOOL, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.Ret); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *SetPartitionStateResponse) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("err", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Err); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *SetPartitionStateResponse) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("SetPartitionStateResponse(%+v)", *p)
+
+}
+
+func (p *SetPartitionStateResponse) DeepEqual(ano *SetPartitionStateResponse) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Ret) {
+		return false
+	}
+	if !p.Field2DeepEqual(ano.Err) {
+		return false
+	}
+	return true
+}
+
+func (p *SetPartitionStateResponse) Field1DeepEqual(src bool) bool {
+
+	if p.Ret != src {
+		return false
+	}
+	return true
+}
+func (p *SetPartitionStateResponse) Field2DeepEqual(src string) bool {
+
+	if strings.Compare(p.Err, src) != 0 {
+		return false
+	}
+	return true
+}
+
 type Server_Operations interface {
 	Push(ctx context.Context, req *PushRequest) (r *PushResponse, err error)
 
@@ -9714,7 +10779,11 @@ type ZkServer_Operations interface {
 
 	CreatePart(ctx context.Context, req *CreatePartRequest) (r *CreatePartResponse, err error)
 
+	SetPartitionState(ctx context.Context, req *SetPartitionStateRequest) (r *SetPartitionStateResponse, err error)
+
 	BroInfo(ctx context.Context, req *BroInfoRequest) (r *BroInfoResponse, err error)
+
+	UpdateOffset(ctx context.Context, req *UpdateOffsetRequest) (r *UpdateOffsetResponse, err error)
 
 	ProGetBroker(ctx context.Context, req *ProGetBrokRequest) (r *ProGetBrokResponse, err error)
 
@@ -13803,6 +14872,346 @@ func (p *ZkServer_OperationsCreatePartResult) Field0DeepEqual(src *CreatePartRes
 	return true
 }
 
+type ZkServer_OperationsSetPartitionStateArgs struct {
+	Req *SetPartitionStateRequest `thrift:"req,1" frugal:"1,default,SetPartitionStateRequest" json:"req"`
+}
+
+func NewZkServer_OperationsSetPartitionStateArgs() *ZkServer_OperationsSetPartitionStateArgs {
+	return &ZkServer_OperationsSetPartitionStateArgs{}
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) InitDefault() {
+}
+
+var ZkServer_OperationsSetPartitionStateArgs_Req_DEFAULT *SetPartitionStateRequest
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) GetReq() (v *SetPartitionStateRequest) {
+	if !p.IsSetReq() {
+		return ZkServer_OperationsSetPartitionStateArgs_Req_DEFAULT
+	}
+	return p.Req
+}
+func (p *ZkServer_OperationsSetPartitionStateArgs) SetReq(val *SetPartitionStateRequest) {
+	p.Req = val
+}
+
+var fieldIDToName_ZkServer_OperationsSetPartitionStateArgs = map[int16]string{
+	1: "req",
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) IsSetReq() bool {
+	return p.Req != nil
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ZkServer_OperationsSetPartitionStateArgs[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := NewSetPartitionStateRequest()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Req = _field
+	return nil
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("SetPartitionState_args"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := p.Req.Write(oprot); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ZkServer_OperationsSetPartitionStateArgs(%+v)", *p)
+
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) DeepEqual(ano *ZkServer_OperationsSetPartitionStateArgs) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Req) {
+		return false
+	}
+	return true
+}
+
+func (p *ZkServer_OperationsSetPartitionStateArgs) Field1DeepEqual(src *SetPartitionStateRequest) bool {
+
+	if !p.Req.DeepEqual(src) {
+		return false
+	}
+	return true
+}
+
+type ZkServer_OperationsSetPartitionStateResult struct {
+	Success *SetPartitionStateResponse `thrift:"success,0,optional" frugal:"0,optional,SetPartitionStateResponse" json:"success,omitempty"`
+}
+
+func NewZkServer_OperationsSetPartitionStateResult() *ZkServer_OperationsSetPartitionStateResult {
+	return &ZkServer_OperationsSetPartitionStateResult{}
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) InitDefault() {
+}
+
+var ZkServer_OperationsSetPartitionStateResult_Success_DEFAULT *SetPartitionStateResponse
+
+func (p *ZkServer_OperationsSetPartitionStateResult) GetSuccess() (v *SetPartitionStateResponse) {
+	if !p.IsSetSuccess() {
+		return ZkServer_OperationsSetPartitionStateResult_Success_DEFAULT
+	}
+	return p.Success
+}
+func (p *ZkServer_OperationsSetPartitionStateResult) SetSuccess(x interface{}) {
+	p.Success = x.(*SetPartitionStateResponse)
+}
+
+var fieldIDToName_ZkServer_OperationsSetPartitionStateResult = map[int16]string{
+	0: "success",
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 0:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField0(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ZkServer_OperationsSetPartitionStateResult[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := NewSetPartitionStateResponse()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Success = _field
+	return nil
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("SetPartitionState_result"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField0(oprot); err != nil {
+			fieldId = 0
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ZkServer_OperationsSetPartitionStateResult(%+v)", *p)
+
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) DeepEqual(ano *ZkServer_OperationsSetPartitionStateResult) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field0DeepEqual(ano.Success) {
+		return false
+	}
+	return true
+}
+
+func (p *ZkServer_OperationsSetPartitionStateResult) Field0DeepEqual(src *SetPartitionStateResponse) bool {
+
+	if !p.Success.DeepEqual(src) {
+		return false
+	}
+	return true
+}
+
 type ZkServer_OperationsBroInfoArgs struct {
 	Req *BroInfoRequest `thrift:"req,1" frugal:"1,default,BroInfoRequest" json:"req"`
 }
@@ -14136,6 +15545,346 @@ func (p *ZkServer_OperationsBroInfoResult) DeepEqual(ano *ZkServer_OperationsBro
 }
 
 func (p *ZkServer_OperationsBroInfoResult) Field0DeepEqual(src *BroInfoResponse) bool {
+
+	if !p.Success.DeepEqual(src) {
+		return false
+	}
+	return true
+}
+
+type ZkServer_OperationsUpdateOffsetArgs struct {
+	Req *UpdateOffsetRequest `thrift:"req,1" frugal:"1,default,UpdateOffsetRequest" json:"req"`
+}
+
+func NewZkServer_OperationsUpdateOffsetArgs() *ZkServer_OperationsUpdateOffsetArgs {
+	return &ZkServer_OperationsUpdateOffsetArgs{}
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) InitDefault() {
+}
+
+var ZkServer_OperationsUpdateOffsetArgs_Req_DEFAULT *UpdateOffsetRequest
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) GetReq() (v *UpdateOffsetRequest) {
+	if !p.IsSetReq() {
+		return ZkServer_OperationsUpdateOffsetArgs_Req_DEFAULT
+	}
+	return p.Req
+}
+func (p *ZkServer_OperationsUpdateOffsetArgs) SetReq(val *UpdateOffsetRequest) {
+	p.Req = val
+}
+
+var fieldIDToName_ZkServer_OperationsUpdateOffsetArgs = map[int16]string{
+	1: "req",
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) IsSetReq() bool {
+	return p.Req != nil
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ZkServer_OperationsUpdateOffsetArgs[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := NewUpdateOffsetRequest()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Req = _field
+	return nil
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("UpdateOffset_args"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := p.Req.Write(oprot); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ZkServer_OperationsUpdateOffsetArgs(%+v)", *p)
+
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) DeepEqual(ano *ZkServer_OperationsUpdateOffsetArgs) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field1DeepEqual(ano.Req) {
+		return false
+	}
+	return true
+}
+
+func (p *ZkServer_OperationsUpdateOffsetArgs) Field1DeepEqual(src *UpdateOffsetRequest) bool {
+
+	if !p.Req.DeepEqual(src) {
+		return false
+	}
+	return true
+}
+
+type ZkServer_OperationsUpdateOffsetResult struct {
+	Success *UpdateOffsetResponse `thrift:"success,0,optional" frugal:"0,optional,UpdateOffsetResponse" json:"success,omitempty"`
+}
+
+func NewZkServer_OperationsUpdateOffsetResult() *ZkServer_OperationsUpdateOffsetResult {
+	return &ZkServer_OperationsUpdateOffsetResult{}
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) InitDefault() {
+}
+
+var ZkServer_OperationsUpdateOffsetResult_Success_DEFAULT *UpdateOffsetResponse
+
+func (p *ZkServer_OperationsUpdateOffsetResult) GetSuccess() (v *UpdateOffsetResponse) {
+	if !p.IsSetSuccess() {
+		return ZkServer_OperationsUpdateOffsetResult_Success_DEFAULT
+	}
+	return p.Success
+}
+func (p *ZkServer_OperationsUpdateOffsetResult) SetSuccess(x interface{}) {
+	p.Success = x.(*UpdateOffsetResponse)
+}
+
+var fieldIDToName_ZkServer_OperationsUpdateOffsetResult = map[int16]string{
+	0: "success",
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 0:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField0(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ZkServer_OperationsUpdateOffsetResult[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := NewUpdateOffsetResponse()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Success = _field
+	return nil
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("UpdateOffset_result"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField0(oprot); err != nil {
+			fieldId = 0
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ZkServer_OperationsUpdateOffsetResult(%+v)", *p)
+
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) DeepEqual(ano *ZkServer_OperationsUpdateOffsetResult) bool {
+	if p == ano {
+		return true
+	} else if p == nil || ano == nil {
+		return false
+	}
+	if !p.Field0DeepEqual(ano.Success) {
+		return false
+	}
+	return true
+}
+
+func (p *ZkServer_OperationsUpdateOffsetResult) Field0DeepEqual(src *UpdateOffsetResponse) bool {
 
 	if !p.Success.DeepEqual(src) {
 		return false

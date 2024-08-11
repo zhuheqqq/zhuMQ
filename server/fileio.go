@@ -144,3 +144,34 @@ func (f *File) FindOffset(file *os.File, index int64) (int64, error) {
 
 	return offset, nil
 }
+
+func (f *File) ReadByte(file *os.File, offset int64) (Key, []byte, error) {
+	var node Key
+
+	data_node := make([]byte, NODE_SIZE)
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	size, err := file.ReadAt(data_node, offset)
+
+	if size != NODE_SIZE {
+		return node, nil, errors.New("read node size is not NODE_SIZE")
+	}
+	if err == io.EOF { //读到文件末尾
+		return node, nil, errors.New("read All file, do not find this index")
+	}
+
+	json.Unmarshal(data_node, &node)
+	data_msg := make([]byte, node.Size)
+	size, err = file.ReadAt(data_msg, offset+int64(f.node_size)+int64(node.Size))
+
+	if size != NODE_SIZE {
+		return node, nil, errors.New("read msg size is not NODE_SIZE")
+	}
+	if err == io.EOF { //读到文件末尾
+		return node, nil, errors.New("read All file, do not find this index")
+	}
+
+	return node, data_msg, nil
+}

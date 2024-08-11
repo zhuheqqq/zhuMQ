@@ -34,10 +34,24 @@ var serviceMethods = map[string]kitex.MethodInfo{
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
+	"SetPartitionState": kitex.NewMethodInfo(
+		setPartitionStateHandler,
+		newZkServer_OperationsSetPartitionStateArgs,
+		newZkServer_OperationsSetPartitionStateResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
 	"BroInfo": kitex.NewMethodInfo(
 		broInfoHandler,
 		newZkServer_OperationsBroInfoArgs,
 		newZkServer_OperationsBroInfoResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"UpdateOffset": kitex.NewMethodInfo(
+		updateOffsetHandler,
+		newZkServer_OperationsUpdateOffsetArgs,
+		newZkServer_OperationsUpdateOffsetResult,
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
@@ -182,6 +196,24 @@ func newZkServer_OperationsCreatePartResult() interface{} {
 	return api.NewZkServer_OperationsCreatePartResult()
 }
 
+func setPartitionStateHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.ZkServer_OperationsSetPartitionStateArgs)
+	realResult := result.(*api.ZkServer_OperationsSetPartitionStateResult)
+	success, err := handler.(api.ZkServer_Operations).SetPartitionState(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newZkServer_OperationsSetPartitionStateArgs() interface{} {
+	return api.NewZkServer_OperationsSetPartitionStateArgs()
+}
+
+func newZkServer_OperationsSetPartitionStateResult() interface{} {
+	return api.NewZkServer_OperationsSetPartitionStateResult()
+}
+
 func broInfoHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
 	realArg := arg.(*api.ZkServer_OperationsBroInfoArgs)
 	realResult := result.(*api.ZkServer_OperationsBroInfoResult)
@@ -198,6 +230,24 @@ func newZkServer_OperationsBroInfoArgs() interface{} {
 
 func newZkServer_OperationsBroInfoResult() interface{} {
 	return api.NewZkServer_OperationsBroInfoResult()
+}
+
+func updateOffsetHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.ZkServer_OperationsUpdateOffsetArgs)
+	realResult := result.(*api.ZkServer_OperationsUpdateOffsetResult)
+	success, err := handler.(api.ZkServer_Operations).UpdateOffset(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newZkServer_OperationsUpdateOffsetArgs() interface{} {
+	return api.NewZkServer_OperationsUpdateOffsetArgs()
+}
+
+func newZkServer_OperationsUpdateOffsetResult() interface{} {
+	return api.NewZkServer_OperationsUpdateOffsetResult()
 }
 
 func proGetBrokerHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
@@ -294,11 +344,31 @@ func (p *kClient) CreatePart(ctx context.Context, req *api.CreatePartRequest) (r
 	return _result.GetSuccess(), nil
 }
 
+func (p *kClient) SetPartitionState(ctx context.Context, req *api.SetPartitionStateRequest) (r *api.SetPartitionStateResponse, err error) {
+	var _args api.ZkServer_OperationsSetPartitionStateArgs
+	_args.Req = req
+	var _result api.ZkServer_OperationsSetPartitionStateResult
+	if err = p.c.Call(ctx, "SetPartitionState", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
 func (p *kClient) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *api.BroInfoResponse, err error) {
 	var _args api.ZkServer_OperationsBroInfoArgs
 	_args.Req = req
 	var _result api.ZkServer_OperationsBroInfoResult
 	if err = p.c.Call(ctx, "BroInfo", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) UpdateOffset(ctx context.Context, req *api.UpdateOffsetRequest) (r *api.UpdateOffsetResponse, err error) {
+	var _args api.ZkServer_OperationsUpdateOffsetArgs
+	_args.Req = req
+	var _result api.ZkServer_OperationsUpdateOffsetResult
+	if err = p.c.Call(ctx, "UpdateOffset", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil

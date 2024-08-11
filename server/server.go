@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	client2 "github.com/cloudwego/kitex/client"
+	"github.com/cloudwego/kitex/client"
 	"os"
 	"sync"
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/client_operations"
+	"zhuMQ/kitex_gen/api/raft_operations"
 	"zhuMQ/kitex_gen/api/zkserver_operations"
 	"zhuMQ/zookeeper"
 )
@@ -30,6 +31,8 @@ type Server struct {
 	zk          zookeeper.ZK
 	zkclient    zkserver_operations.Client
 	mu          sync.RWMutex
+	aplych      chan info
+	brokers     map[string]*raft_operations.Client
 }
 
 type Key struct {
@@ -45,27 +48,8 @@ type Message struct {
 	Msg        []byte `json:"msg"`
 }
 
-type Msg struct {
-	producer string
-	topic    string
-	key      string
-	msg      []byte
-}
-
-type retpull struct {
-	message string
-}
-
-type startget struct {
-	cli_name   string
-	topic_name string
-	part_name  string
-	index      int64
-	option     int8
-}
-
 type info struct {
-	name       string //broker name
+	//name       string //broker name
 	topic_name string
 	part_name  string
 	file_name  string
@@ -73,22 +57,22 @@ type info struct {
 	option     int8
 	offset     int64
 	size       int8
-	message    string
+	ack        int8
 
 	producer string
 	consumer string
-}
+	cmdindex int64
+	message  string
 
-//type retsub struct {
-//	size  int
-//	parts []PartKey
-//}
+	brokers map[string]string
+	me      int
+}
 
 func NewServer(zkinfo zookeeper.ZKInfo) *Server {
 	return &Server{
 		// topics: make(map[string]*Topic),
 		// consumers: make(map[string]*Client),
-		zk: *zookeeper.NewZK(zkinfo), //连接上zookeeper
+		zk: zookeeper.NewZK(zkinfo), //连接上zookeeper
 		mu: sync.RWMutex{},
 	}
 }
@@ -104,7 +88,21 @@ func (s *Server) make(opt Options) {
 
 	//本地创建parts——raft，为raft同步做准备
 	s.parts_rafts = NewParts_Raft()
-	go s.parts_rafts.make(opt.Name, opt.Raft_Host_Port)
+	go s.parts_rafts.make(opt.Name, opt.Raft_Host_Port, s.aplych)
+
+	//在zookeeper上创建一个永久节点, 若存在则不需要创建
+	err := s.zk.RegisterNode(zookeeper.BrokerNode{
+		Name:     s.Name,
+		HostPort: opt.Broker_Host_Port,
+	})
+	if err != nil {
+		DEBUG(dError, err.Error())
+	}
+	//创建临时节点,用于zkserver的watch
+	err = s.zk.CreateState(s.Name)
+	if err != nil {
+		DEBUG(dError, err.Error())
+	}
 
 	//连接zkServer，并将自己的Info发送到zkServer,
 	zkclient, err := zkserver_operations.NewClient(opt.Name, client.WithHostPorts(opt.Zkserver_Host_Port))
@@ -121,6 +119,23 @@ func (s *Server) make(opt Options) {
 		DEBUG(dError, err.Error())
 	}
 	//s.IntiBroker() 根据zookeeper上的历史信息，加载缓存信息
+}
+
+// 接收applych管道的内容
+// 写入partition文件中
+func (s *Server) GetApplych(applych chan info) {
+
+	for msg := range applych {
+		s.mu.RLock()
+		topic, ok := s.topics[msg.topic_name]
+		s.mu.RUnlock()
+
+		if !ok {
+			DEBUG(dError, "topic(%v) is not in this broker\n", msg.topic_name)
+		} else {
+			topic.addMessage(msg)
+		}
+	}
 }
 
 // 获取该Broker需要负责的Topic和Partition,并在本地创建对应配置
@@ -228,6 +243,24 @@ func (s *Server) PrepareAcceptHandle(in info) (ret string, err error) {
 		topic = NewTopic(in.topic_name)
 		s.topics[in.topic_name] = topic
 	}
+	var peers []*raft_operations.Client
+	for k, v := range in.brokers {
+		if k != s.Name {
+			bro_cli, ok := s.brokers[k]
+			if !ok {
+				cli, err := raft_operations.NewClient(s.Name, client.WithHostPorts(v))
+				if err != nil {
+					return ret, err
+				}
+				s.brokers[k] = &cli
+				bro_cli = &cli
+			}
+			peers = append(peers, bro_cli)
+		}
+	}
+
+	//检查或创建底层part_raft
+	s.parts_rafts.AddPart_Raft(peers, in.me, in.topic_name, in.part_name, s.aplych)
 	s.mu.Unlock()
 	return topic.PrepareAcceptHandle(in)
 }
@@ -246,12 +279,12 @@ func (s *Server) PrepareSendHandle(in info) (ret string, err error) {
 	}
 	s.mu.Unlock()
 	//检查或创建partition
-	return topic.PrepareSendHandle(in)
+	return topic.PrepareSendHandle(in, &s.zkclient)
 }
 
 func (s *Server) InfoHandle(ipport string) error {
 	DEBUG(dLog, "get consumer's ip_port %v\n", ipport)
-	client, err := client_operations.NewClient("clients", client2.WithHostPorts(ipport))
+	client, err := client_operations.NewClient("clients", client.WithHostPorts(ipport))
 	if err == nil {
 		DEBUG(dLog, "connect consumer server successful\n")
 		s.mu.Lock()
@@ -330,16 +363,34 @@ func (s *Server) UnSubHandle(in info) error {
 	return nil
 }
 
-func (s *Server) PushHandle(in info) error {
+func (s *Server) PushHandle(in info) (ret string, err error) {
+	DEBUG(dLog, "get Message form producer\n")
+	s.mu.RLock()
 	topic, ok := s.topics[in.topic_name]
+	part_raft := s.parts_rafts
+	s.mu.RUnlock()
+
 	if !ok {
-		topic = NewTopic(in.topic_name)
-		s.mu.Lock()
-		s.topics[in.topic_name] = topic
-		s.mu.Unlock()
+		ret = "this topic is not in this broker"
+		DEBUG(dError, "Topic %v, is not in this broker\n", in.topic_name)
+		return ret, errors.New(ret)
 	}
-	topic.addMessage(in)
-	return nil
+
+	switch in.ack {
+	case -1: //raft同步,并写入
+		ret, err = part_raft.Append(in)
+	case 1: //leader写入,不等待同步
+		err = topic.addMessage(in)
+	case 0: //直接返回
+		go topic.addMessage(in)
+	}
+
+	if err != nil {
+		DEBUG(dError, err.Error())
+		return err.Error(), err
+	}
+
+	return ret, err
 }
 
 func (s *Server) PullHandle(in info) (MSGS, error) {
@@ -347,6 +398,11 @@ func (s *Server) PullHandle(in info) (MSGS, error) {
 		读取index，获得上次的index，写如zookeeper中
 
 	*/
+	s.zkclient.UpdateOffset(context.Background(), &api.UpdateOffsetRequest{
+		Topic:  in.topic_name,
+		Part:   in.part_name,
+		Offset: in.offset,
+	})
 
 	s.mu.RLock()
 	topic, ok := s.topics[in.topic_name]

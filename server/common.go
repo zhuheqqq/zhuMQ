@@ -17,6 +17,7 @@ type Options struct {
 	Tag                string
 	Zkserver_Host_Port string
 	Broker_Host_Port   string
+	Raft_Host_Port     string
 }
 
 // broker向zookeeper发送自己的新能指标，用于按权值负载均衡

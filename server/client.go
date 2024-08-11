@@ -9,6 +9,7 @@ import (
 	"time"
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/client_operations"
+	"zhuMQ/kitex_gen/api/zkserver_operations"
 )
 
 const (
@@ -106,6 +107,7 @@ type Part struct {
 	part_name  string
 	option     int8
 	clis       map[string]*client_operations.Client
+	zkclient   *zkserver_operations.Client
 
 	state string
 	fd    os.File
@@ -144,12 +146,13 @@ type Done struct {
 	// add a consumer name for start to send
 }
 
-func NewPart(in info, file *File) *Part {
+func NewPart(in info, file *File, zkclient *zkserver_operations.Client) *Part {
 	part := &Part{
 		mu:          sync.RWMutex{},
 		topic_name:  in.topic_name,
 		part_name:   in.part_name,
 		option:      in.option,
+		zkclient:    zkclient,
 		buffer_node: make(map[int64]Key),
 		buffer_msg:  make(map[int64][]Message),
 		file:        file,
@@ -262,9 +265,6 @@ func (p *Part) GetDone(close chan *Part) {
 			if do.err == OK { // 发送成功，buf_do--, buf_done++, 补充buf_do
 
 				num++
-				if num >= UPDATENUM {
-
-				}
 
 				err := p.AddBlock()
 				p.mu.Lock()
@@ -289,6 +289,11 @@ func (p *Part) GetDone(close chan *Part) {
 				for {
 					if p.buf_done[in] == HADDO {
 						p.start_index = p.buffer_node[in].End_index + 1
+						(*p.zkclient).UpdateOffset(context.Background(), &api.UpdateOffsetRequest{
+							Topic:  p.topic_name,
+							Part:   p.part_name,
+							Offset: p.start_index,
+						})
 						delete(p.buf_done, in)
 						delete(p.buffer_msg, in)
 						delete(p.buffer_node, in)

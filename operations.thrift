@@ -5,6 +5,7 @@ struct PushRequest {
     2: string topic
     3: string key
     4: string message
+    5: i64    index
 }
 
 struct PushResponse {
@@ -238,12 +239,37 @@ struct CreatePartResponse {
     2:  string  err
 }
 
+struct UpdateOffsetRequest{
+    1: string   topic
+    2: string   part
+    3: i64      offset
+}
+
+struct UpdateOffsetResponse{
+    1: bool     ret
+}
+
+struct SetPartitionStateRequest{
+    1: string   topic
+    2: string   partition
+    3: i8       option
+    4: i8       dupnum
+}
+
+struct SetPartitionStateResponse{
+    1: bool     ret
+    2: string   err
+}
+
+
 service ZkServer_Operations {
    SubResponse  Sub(1:  SubRequest  req)               //consumer used
    CreateTopicResponse CreateTopic(1: CreateTopicRequest req)
    CreatePartResponse  CreatePart(1: CreatePartRequest req)
+   SetPartitionStateResponse SetPartitionState(1: SetPartitionStateRequest req)
     //broker
    BroInfoResponse BroInfo(1: BroInfoRequest req)
+   UpdateOffsetResponse UpdateOffset(1: UpdateOffsetRequest req)
    ProGetBrokResponse ProGetBroker(1:  ProGetBrokRequest req)//broker 发送info让zkserver连接broker
    ConStartGetBrokResponse ConStartGetBroker(1:  ConStartGetBrokRequest req)
 
