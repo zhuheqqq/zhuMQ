@@ -2,7 +2,7 @@ package clients
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/server"
@@ -116,31 +116,41 @@ func (c *Consumer) SendInfo(port string, cli *server_operations.Client) error {
 	return err
 }
 
-func (c *Consumer) StartGet(info Info) (err error) {
-	ret := ""
-	req := api.InfoGetRequest{
+func (c *Consumer) StartGet(info Info) (parts []PartKey, ret string, err error) {
+	resp, err := c.zkBroker.ConStartGetBroker(context.Background(), &api.ConStartGetBrokRequest{
 		CliName:   c.Name,
 		TopicName: info.Topic,
 		PartName:  info.Part,
-		Offset:    info.Offset,
 		Option:    info.Option,
-	}
-	resp, err := info.Cli.StarttoGet(context.Background(), &req)
+		Index:     info.Offset,
+	})
+
 	if err != nil || !resp.Ret {
-		ret += info.Topic + info.Part + ": err != nil or resp.Ret == false\n"
+		return nil, ret, err
 	}
-	if ret == "" {
-		return nil
-	} else {
-		return errors.New(ret)
+
+	// broks := make([]BrokerInfo, resp.Size)
+	// json.Unmarshal(resp.Broks, &broks)
+
+	parts = make([]PartKey, resp.Size)
+	json.Unmarshal(resp.Parts, &parts)
+
+	if info.Option == 1 || info.Option == 3 { //pub
+		ret, err = c.StartGetToBroker(parts, info)
 	}
+	return parts, ret, err
 }
 
-func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) error {
+func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) (ret string, err error) {
 
 	//连接上各个broker，并发送start请求
 
 	for _, part := range parts {
+
+		if part.Err != "ok" {
+			ret += part.Err
+			continue
+		}
 
 		rep := &api.InfoGetRequest{
 			CliName:   c.Name,
@@ -154,7 +164,7 @@ func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) error {
 		if !ok {
 			bro_cli, err := server_operations.NewClient(c.Name, client.WithHostPorts(part.Broker_H_P))
 			if err != nil {
-				return err
+				return ret, err
 			}
 			if info.Option == 1 { //ptp
 				c.Brokers[part.Broker_name] = bro_cli
@@ -167,7 +177,32 @@ func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) error {
 			bro_cli.StarttoGet(context.Background(), rep)
 		}
 	}
-	return nil
+	return ret, nil
+}
+
+// 向broker索要信息
+func (c *Consumer) Pull(info Info) (int64, int64, []Msg, error) {
+	resp, err := info.Cli.Pull(context.Background(), &api.PullRequest{
+		Consumer: c.Name,
+		Topic:    info.Topic,
+		Key:      info.Part,
+		Offset:   info.Offset,
+	})
+	if err != nil {
+		return -1, -1, nil, err
+	}
+
+	msgs := make([]Msg, resp.EndIndex-resp.StartIndex)
+	json.Unmarshal(resp.Msgs, &msgs)
+
+	return resp.StartIndex, resp.EndIndex, msgs, nil
+}
+
+type Msg struct {
+	Index      int64  `json:"index"`
+	Topic_name string `json:"topic_name"`
+	Part_name  string `json:"part_name"`
+	Msg        []byte `json:"msg"`
 }
 
 type Info struct {
