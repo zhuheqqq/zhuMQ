@@ -62,6 +62,41 @@ var serviceMethods = map[string]kitex.MethodInfo{
 		false,
 		kitex.WithStreamingMode(kitex.StreamingNone),
 	),
+	"PrepareState": kitex.NewMethodInfo(
+		prepareStateHandler,
+		newServer_OperationsPrepareStateArgs,
+		newServer_OperationsPrepareStateResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"AddRaftPartition": kitex.NewMethodInfo(
+		addRaftPartitionHandler,
+		newServer_OperationsAddRaftPartitionArgs,
+		newServer_OperationsAddRaftPartitionResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"CloseRaftPartition": kitex.NewMethodInfo(
+		closeRaftPartitionHandler,
+		newServer_OperationsCloseRaftPartitionArgs,
+		newServer_OperationsCloseRaftPartitionResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"AddFetchPartition": kitex.NewMethodInfo(
+		addFetchPartitionHandler,
+		newServer_OperationsAddFetchPartitionArgs,
+		newServer_OperationsAddFetchPartitionResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
+	"CloseFetchPartition": kitex.NewMethodInfo(
+		closeFetchPartitionHandler,
+		newServer_OperationsCloseFetchPartitionArgs,
+		newServer_OperationsCloseFetchPartitionResult,
+		false,
+		kitex.WithStreamingMode(kitex.StreamingNone),
+	),
 }
 
 var (
@@ -254,6 +289,96 @@ func newServer_OperationsCloseAcceptResult() interface{} {
 	return api.NewServer_OperationsCloseAcceptResult()
 }
 
+func prepareStateHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsPrepareStateArgs)
+	realResult := result.(*api.Server_OperationsPrepareStateResult)
+	success, err := handler.(api.Server_Operations).PrepareState(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsPrepareStateArgs() interface{} {
+	return api.NewServer_OperationsPrepareStateArgs()
+}
+
+func newServer_OperationsPrepareStateResult() interface{} {
+	return api.NewServer_OperationsPrepareStateResult()
+}
+
+func addRaftPartitionHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsAddRaftPartitionArgs)
+	realResult := result.(*api.Server_OperationsAddRaftPartitionResult)
+	success, err := handler.(api.Server_Operations).AddRaftPartition(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsAddRaftPartitionArgs() interface{} {
+	return api.NewServer_OperationsAddRaftPartitionArgs()
+}
+
+func newServer_OperationsAddRaftPartitionResult() interface{} {
+	return api.NewServer_OperationsAddRaftPartitionResult()
+}
+
+func closeRaftPartitionHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsCloseRaftPartitionArgs)
+	realResult := result.(*api.Server_OperationsCloseRaftPartitionResult)
+	success, err := handler.(api.Server_Operations).CloseRaftPartition(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsCloseRaftPartitionArgs() interface{} {
+	return api.NewServer_OperationsCloseRaftPartitionArgs()
+}
+
+func newServer_OperationsCloseRaftPartitionResult() interface{} {
+	return api.NewServer_OperationsCloseRaftPartitionResult()
+}
+
+func addFetchPartitionHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsAddFetchPartitionArgs)
+	realResult := result.(*api.Server_OperationsAddFetchPartitionResult)
+	success, err := handler.(api.Server_Operations).AddFetchPartition(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsAddFetchPartitionArgs() interface{} {
+	return api.NewServer_OperationsAddFetchPartitionArgs()
+}
+
+func newServer_OperationsAddFetchPartitionResult() interface{} {
+	return api.NewServer_OperationsAddFetchPartitionResult()
+}
+
+func closeFetchPartitionHandler(ctx context.Context, handler interface{}, arg, result interface{}) error {
+	realArg := arg.(*api.Server_OperationsCloseFetchPartitionArgs)
+	realResult := result.(*api.Server_OperationsCloseFetchPartitionResult)
+	success, err := handler.(api.Server_Operations).CloseFetchPartition(ctx, realArg.Req)
+	if err != nil {
+		return err
+	}
+	realResult.Success = success
+	return nil
+}
+func newServer_OperationsCloseFetchPartitionArgs() interface{} {
+	return api.NewServer_OperationsCloseFetchPartitionArgs()
+}
+
+func newServer_OperationsCloseFetchPartitionResult() interface{} {
+	return api.NewServer_OperationsCloseFetchPartitionResult()
+}
+
 type kClient struct {
 	c client.Client
 }
@@ -329,6 +454,56 @@ func (p *kClient) CloseAccept(ctx context.Context, req *api.CloseAcceptRequest) 
 	_args.Req = req
 	var _result api.Server_OperationsCloseAcceptResult
 	if err = p.c.Call(ctx, "CloseAccept", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) PrepareState(ctx context.Context, req *api.PrepareStateRequest) (r *api.PrepareStateResponse, err error) {
+	var _args api.Server_OperationsPrepareStateArgs
+	_args.Req = req
+	var _result api.Server_OperationsPrepareStateResult
+	if err = p.c.Call(ctx, "PrepareState", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) AddRaftPartition(ctx context.Context, req *api.AddRaftPartitionRequest) (r *api.AddRaftPartitionResponse, err error) {
+	var _args api.Server_OperationsAddRaftPartitionArgs
+	_args.Req = req
+	var _result api.Server_OperationsAddRaftPartitionResult
+	if err = p.c.Call(ctx, "AddRaftPartition", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) CloseRaftPartition(ctx context.Context, req *api.CloseRaftPartitionRequest) (r *api.CloseRaftPartitionResponse, err error) {
+	var _args api.Server_OperationsCloseRaftPartitionArgs
+	_args.Req = req
+	var _result api.Server_OperationsCloseRaftPartitionResult
+	if err = p.c.Call(ctx, "CloseRaftPartition", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) AddFetchPartition(ctx context.Context, req *api.AddFetchPartitionRequest) (r *api.AddFetchPartitionResponse, err error) {
+	var _args api.Server_OperationsAddFetchPartitionArgs
+	_args.Req = req
+	var _result api.Server_OperationsAddFetchPartitionResult
+	if err = p.c.Call(ctx, "AddFetchPartition", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+
+func (p *kClient) CloseFetchPartition(ctx context.Context, req *api.CloseFetchPartitionRequest) (r *api.CloseFetchPartitionResponse, err error) {
+	var _args api.Server_OperationsCloseFetchPartitionArgs
+	_args.Req = req
+	var _result api.Server_OperationsCloseFetchPartitionResult
+	if err = p.c.Call(ctx, "CloseFetchPartition", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil

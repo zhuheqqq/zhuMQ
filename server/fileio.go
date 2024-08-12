@@ -15,17 +15,20 @@ type File struct {
 }
 
 // 先检查该磁盘是否存在该文件，如不存在则需要创建
-func NewFile(path_name string) (file *File, fd *os.File) {
-	var err error
+func NewFile(path_name string) (file *File, fd *os.File, Err string, err error) {
 	if !CheckFileOrList(path_name) {
 		fd, err = CreateFile(path_name)
 		if err != nil {
+			Err = "CreatFileFail"
 			DEBUG(dError, err.Error())
+			return nil, nil, Err, err
 		}
 	} else {
 		fd, err = os.OpenFile(path_name, os.O_APPEND|os.O_RDWR, os.ModeAppend|os.ModePerm)
 		if err != nil {
 			DEBUG(dError, err.Error())
+			Err = "OpenFile"
+			return nil, nil, Err, err
 		}
 	}
 
@@ -34,7 +37,31 @@ func NewFile(path_name string) (file *File, fd *os.File) {
 		filename:  name,
 		node_size: NODE_SIZE,
 	}
-	return file, fd
+	return file, fd, "ok", err
+}
+
+func CheckFile(path_name string) (file *File, fd *os.File, Err string, err error) {
+	if !CheckFileOrList(path_name) {
+
+		Err = "NotFile"
+		errors.New(Err)
+		DEBUG(dError, err.Error())
+		return nil, nil, Err, err
+	} else {
+		fd, err = os.OpenFile(path_name, os.O_APPEND|os.O_RDWR, os.ModeAppend|os.ModePerm)
+		if err != nil {
+			DEBUG(dError, err.Error())
+			Err = "OpenFile"
+			return nil, nil, Err, err
+		}
+	}
+
+	file = &File{
+		mu:        sync.RWMutex{},
+		filename:  name,
+		node_size: NODE_SIZE,
+	}
+	return file, fd, "ok", err
 }
 
 // 修改文件名
@@ -57,16 +84,12 @@ func (f *File) GetIndex(file *os.File) int64 {
 	return 0
 }
 
-func (f *File) WriteFile(file *os.File, node Key, msg []Message) bool {
-	data_msg, err := json.Marshal(msg)
-	if err != nil {
-		DEBUG(dError, "%v turn json fail\n", msg)
-	}
-	node.Size = len(data_msg)
+func (f *File) WriteFile(file *os.File, node Key, data_msg []byte) bool {
 	data_node, err := json.Marshal(node)
 	if err != nil {
 		DEBUG(dError, "%v turn json fail\n", node)
 	}
+
 	f.mu.Lock()
 
 	if f.node_size == 0 {

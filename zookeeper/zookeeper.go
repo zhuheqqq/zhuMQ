@@ -38,14 +38,14 @@ func NewZK(info ZKInfo) *ZK {
 
 type BrokerNode struct {
 	Name     string `json:"name"`
-	HostPort string `json:"host"`
-	Pnum     int    `json:"pnum"`
+	HostPort string `json:"hostPort"`
+	Pnum     int    `json:"pNum"`
 	//一些负载情况
 }
 
 type TopicNode struct {
 	Name string `json:"name"`
-	Pnum int    `json:"pnum"`
+	Pnum int    `json:"pNum"`
 	//Brokers []string `json:"brokers"` //保存该topic的partition现在由哪些broker负责
 	//用于PTP情况
 }
@@ -53,25 +53,25 @@ type TopicNode struct {
 type PartitionNode struct {
 	Name      string `json:"name"`
 	TopicName string `json:"topic_name"`
-	PTPoffset int64  `json:"ptpoffset"`
+	PTPoffset int64  `json:"ptpOffset"`
 	Option    int8   `json:"option"`
-	DupNum    int8
+	DupNum    int8   `json:"dupNum"`
 }
 
 type BlockNode struct {
 	Name          string `json:"name"`
-	TopicName     string `json:"topic_name"`
+	TopicName     string `json:"topicName"`
 	FileName      string `json:"filename"`
-	PartitionName string `json:"partitionname"`
-	StartOffset   int64  `json:"startoffset"`
-	EndOffset     int64  `json:"endoffset"`
-	LeaderBroker  string `json:"brokername"`
+	PartitionName string `json:"partitionName"`
+	StartOffset   int64  `json:"startOffset"`
+	EndOffset     int64  `json:"endOffset"`
+	LeaderBroker  string `json:"brokerBroker"`
 }
 
 type DuplicateNode struct {
-	StartOffset int64  `json:"startoffset"`
-	EndOffset   int64  `json:"endoffset"`
-	BrokerName  string `json:"brokername"`
+	StartOffset int64  `json:"startOffset"`
+	EndOffset   int64  `json:"endOffset"`
+	BrokerName  string `json:"brokerName"`
 }
 
 type Part struct {
@@ -362,4 +362,16 @@ func (z *ZK) GetDuplicateNode(path string) DuplicateNode {
 	json.Unmarshal(data, &dupnode)
 
 	return dupnode
+}
+
+func (z *ZK) GetDuplicateNodes(topic_name, part_name, block_name string) (nodes []DuplicateNode) {
+	BlockPath := z.TopicRoot + "/" + topic_name + "/Partitions/" + part_name + "/" + block_name
+	Dups, _, _ := z.conn.Children(BlockPath)
+
+	for _, dup_name := range Dups {
+		DupNode := z.GetDuplicateNode(BlockPath + "/" + dup_name)
+		nodes = append(nodes, DupNode)
+	}
+
+	return nodes
 }

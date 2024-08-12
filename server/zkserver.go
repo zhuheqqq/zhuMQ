@@ -29,7 +29,7 @@ type Info_in struct {
 	part_name  string
 	index      int64
 	option     int8
-	dupnum     int8
+	dupnum     int8 //副本数量
 }
 
 type Info_out struct {

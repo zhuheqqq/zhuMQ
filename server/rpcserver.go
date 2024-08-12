@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/cloudwego/kitex/server"
+	"io"
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/server_operations"
 	"zhuMQ/kitex_gen/api/zkserver_operations"
@@ -29,6 +31,7 @@ func NewRpcServer(zkinfo zookeeper.ZKInfo) RPCServer {
 	}
 }
 
+// 启动不同类型服务器并运行其rpc服务器
 func (s *RPCServer) Start(opts_cli, opts_zks []server.Option, opt Options) error {
 
 	switch opt.Tag {
@@ -69,7 +72,7 @@ func (s *RPCServer) ShutDown_server() {
 	s.srv_bro.Stop()
 }
 
-// 处理推送请求
+// 处理来自consumer的推送请求
 func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.PushResponse, err error) {
 	fmt.Println(req)
 	ret, err := s.server.PushHandle(info{
@@ -77,8 +80,9 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 		topic_name: req.Topic,
 		part_name:  req.Key,
 		message:    req.Message,
+		size:       req.Size,
 	})
-	if err == nil {
+	if err != nil {
 		DEBUG(dError, err.Error())
 	}
 	return &api.PushResponse{
@@ -87,19 +91,24 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 	}, nil
 }
 
-// 处理拉取请求
+// 处理来自consumer拉取请求
 func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.PullResponse, err error) {
+	Err := "ok"
 	ret, err := s.server.PullHandle(info{
 		consumer:   req.Consumer,
 		topic_name: req.Topic,
 		part_name:  req.Key,
 		size:       req.Size,
 	})
-	if err == nil {
-		DEBUG(dError, err.Error())
-		return &api.PullResponse{
-			Ret: false,
-		}, nil
+	if err != nil {
+		if err == io.EOF && ret.size == 0 {
+			Err = "file EOF"
+		} else {
+			DEBUG(dError, err.Error())
+			return &api.PullResponse{
+				Ret: false,
+			}, nil
+		}
 	}
 
 	return &api.PullResponse{
@@ -107,6 +116,7 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 		StartIndex: ret.start_index,
 		EndIndex:   ret.end_index,
 		Size:       ret.size,
+		Err:        Err,
 	}, nil
 }
 
@@ -333,7 +343,24 @@ func (s *RPCServer) PrepareAccept(ctx context.Context, req *api.PrepareAcceptReq
 // zkserver控制broker停止接收某个partition的信息，
 // 并修改文件名，关闭partition中的fd等
 func (s *RPCServer) CloseAccept(ctx context.Context, req *api.CloseAcceptRequest) (r *api.CloseAcceptResponse, err error) {
+	start, end, ret, err := s.server.CloseAcceptHandle(info{
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+		file_name:  req.Oldfilename,
+		new_name:   req.Newfilename_,
+	})
+	if err != nil {
+		DEBUG(dError, "Err %v err(%v)\n", ret, err.Error())
+		return &api.CloseAcceptResponse{
+			Ret: false,
+		}, err
+	}
 
+	return &api.CloseAcceptResponse{
+		Ret:        true,
+		Startindex: start,
+		Endindex:   end,
+	}, nil
 }
 
 // zkserver---->broker server
@@ -353,6 +380,116 @@ func (s *RPCServer) PrepareSend(ctx context.Context, req *api.PrepareSendRequest
 	}
 
 	return &api.PrepareSendResponse{
+		Ret: true,
+		Err: ret,
+	}, nil
+}
+
+// zkserver---->broker server
+// zkserver通知broker检查partition的state是否设置，
+// raft集群，或fetch机制是否开启
+func (s *RPCServer) PrepareState(ctx context.Context, req *api.PrepareStateRequest) (r *api.PrepareStateResponse, err error) {
+	brokers := make(map[string]string)
+	json.Unmarshal(req.Brokers, brokers)
+
+	ret, err := s.server.PrepareAcceptHandle(info{
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+		option:     req.State,
+		brokers:    brokers,
+	})
+	if err != nil {
+		return &api.PrepareStateResponse{
+			Ret: false,
+			Err: ret,
+		}, err
+	}
+
+	return &api.PrepareStateResponse{
+		Ret: true,
+		Err: ret,
+	}, nil
+}
+
+func (s *RPCServer) AddRaftPartition(ctx context.Context, req *api.AddRaftPartitionRequest) (r *api.AddRaftPartitionResponse, err error) {
+	brokers := make(map[string]string)
+	json.Unmarshal(req.Brokers, brokers)
+
+	ret, err := s.server.AddRaftHandle(info{
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+		brokers:    brokers,
+	})
+	if err != nil {
+		return &api.AddRaftPartitionResponse{
+			Ret: false,
+			Err: ret,
+		}, err
+	}
+
+	return &api.AddRaftPartitionResponse{
+		Ret: true,
+		Err: ret,
+	}, nil
+}
+
+func (s *RPCServer) CloseRaftPartition(ctx context.Context, req *api.ConStartGetBrokRequest) (r *api.CloseRaftPartitionResponse, err error) {
+	ret, err := s.server.CloseRaftHandle(info{
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+	})
+	if err != nil {
+		return &api.CloseRaftPartitionResponse{
+			Ret: false,
+			Err: ret,
+		}, err
+	}
+
+	return &api.CloseRaftPartitionResponse{
+		Ret: true,
+		Err: ret,
+	}, nil
+}
+
+func (s *RPCServer) AddFetchPartition(ctx context.Context, req *api.AddFetchPartitionRequest) (r *api.AddFetchPartitionResponse, err error) {
+	//BrokerName to HostPort
+	brokers := make(map[string]string)
+	json.Unmarshal(req.Brokers, brokers)
+
+	ret, err := s.server.AddFetchHandle(info{
+		topic_name:   req.TopicName,
+		part_name:    req.PartName,
+		LeaderBroker: req.LeaderBroker,
+		HostPort:     req.HostPort,
+		brokers:      brokers,
+		file_name:    req.FileName,
+	})
+	if err != nil {
+		return &api.AddFetchPartitionResponse{
+			Ret: false,
+			Err: ret,
+		}, err
+	}
+
+	return &api.AddFetchPartitionResponse{
+		Ret: true,
+		Err: ret,
+	}, nil
+}
+
+func (s *RPCServer) CloseFetchPartition(ctx context.Context, req *api.CloseFetchPartitionRequest) (r *api.CloseFetchPartitionResponse, err error) {
+	ret, err := s.server.CloseFetchHandle(info{
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+	})
+	if err != nil {
+		return &api.CloseFetchPartitionResponse{
+			Ret: false,
+			Err: ret,
+		}, err
+	}
+
+	return &api.CloseFetchPartitionResponse{
 		Ret: true,
 		Err: ret,
 	}, nil
