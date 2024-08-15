@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -530,8 +531,12 @@ func (no *Node) ReadMSGS(in info) (MSGS, error) {
 	for nums < int(in.size) {
 		node, msg, err := no.file.ReadByte(&no.fd, no.offset)
 		if err != nil {
-			DEBUG(dError, err.Error())
-			return MSGS{}, err
+			if err == io.EOF {
+				break
+			} else {
+				DEBUG(dError, err.Error())
+				return MSGS{}, err
+			}
 		}
 		if nums == 0 {
 			msgs.start_index = node.Start_index
@@ -544,5 +549,5 @@ func (no *Node) ReadMSGS(in info) (MSGS, error) {
 		msgs.end_index = node.End_index
 	}
 
-	return msgs, nil
+	return msgs, err
 }

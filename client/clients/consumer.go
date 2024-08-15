@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/server"
+	"io"
 	"net"
 	"sync"
 	"zhuMQ/kitex_gen/api"
@@ -85,7 +86,7 @@ func (c *Consumer) Down() {
 	c.mu.Unlock()
 }
 
-func (c *Consumer) SubScription(topic, partition string, option int8) (err error) {
+func (c *Consumer) Subscription(topic, partition string, option int8) (err error) {
 	//向zkserver订阅topic或partition
 	c.mu.RLock()
 	zk := c.zkBroker
@@ -133,7 +134,10 @@ func (c *Consumer) StartGet(info Info) (parts []PartKey, ret string, err error) 
 	// json.Unmarshal(resp.Broks, &broks)
 
 	parts = make([]PartKey, resp.Size)
-	json.Unmarshal(resp.Parts, &parts)
+	err = json.Unmarshal(resp.Parts, &parts)
+	if err != nil {
+		return nil, "", err
+	}
 
 	if info.Option == 1 || info.Option == 3 { //pub
 		ret, err = c.StartGetToBroker(parts, info)
@@ -193,7 +197,13 @@ func (c *Consumer) Pull(info Info) (int64, int64, []Msg, error) {
 	}
 
 	msgs := make([]Msg, resp.EndIndex-resp.StartIndex)
-	json.Unmarshal(resp.Msgs, &msgs)
+	err = json.Unmarshal(resp.Msgs, &msgs)
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	if resp.Err == "file EOF" {
+		return 0, 0, nil, io.EOF
+	}
 
 	return resp.StartIndex, resp.EndIndex, msgs, nil
 }

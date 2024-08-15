@@ -21,7 +21,7 @@ type Producer struct {
 type Message struct {
 	Topic_name string
 	Part_name  string
-	Msg        string
+	Msg        []byte
 }
 
 func (p *Producer) SetPartitionState(topic_name, part_name string, option, dupnum int8) error {

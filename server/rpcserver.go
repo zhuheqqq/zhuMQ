@@ -386,11 +386,49 @@ func (s *RPCServer) PrepareSend(ctx context.Context, req *api.PrepareSendRequest
 	}, nil
 }
 
+func (s *RPCServer) BecomeLeader(ctx context.Context, req *api.BecomeLeaderRequest) (r *api.BecomeLeaderResponse, err error) {
+
+	err = s.zkserver.BecomeLeader(Info_in{
+		cli_name:   req.Broker,
+		topic_name: req.Topic,
+		part_name:  req.Partition,
+	})
+	if err != nil {
+		return &api.BecomeLeaderResponse{
+			Ret: false,
+		}, err
+	} else {
+		return &api.BecomeLeaderResponse{
+			Ret: true,
+		}, nil
+	}
+}
+
+func (s *RPCServer) GetNewLeader(ctx context.Context, req *api.GetNewLeaderRequest) (r *api.GetNewLeaderResponse, err error) {
+	info, err := s.zkserver.GetNewLeader(Info_in{
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+		blockname:  req.BlockName,
+	})
+
+	if err != nil {
+		return &api.GetNewLeaderResponse{
+			Ret: false,
+		}, err
+	} else {
+		return &api.GetNewLeaderResponse{
+			Ret:          true,
+			LeaderBroker: info.broker_name,
+			HostPort:     info.bro_host_port,
+		}, nil
+	}
+}
+
 // zkserver---->broker server
 // zkserver通知broker检查partition的state是否设置，
 // raft集群，或fetch机制是否开启
 func (s *RPCServer) PrepareState(ctx context.Context, req *api.PrepareStateRequest) (r *api.PrepareStateResponse, err error) {
-	var Brokers Brokers
+	var Brokers BrokerS
 	json.Unmarshal(req.Brokers, &Brokers)
 
 	ret, err := s.server.PrepareAcceptHandle(info{

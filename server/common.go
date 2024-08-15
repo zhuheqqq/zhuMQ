@@ -51,6 +51,10 @@ type BloNodeInfo struct {
 	File_name   string
 }
 
+type BrokerS struct {
+	Brokers map[string]string `json:"brokers"`
+}
+
 const (
 	ZKBROKER = "zkbroker"
 	BROKER   = "broker"
@@ -137,4 +141,8 @@ func GetPartKeyArray(parts map[string]*Partition) []PartKey {
 		})
 	}
 	return array
+}
+
+func MovName(OldFilePath, NewFilePath string) error {
+	return os.Rename(OldFilePath, NewFilePath)
 }
