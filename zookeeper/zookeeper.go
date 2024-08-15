@@ -56,6 +56,7 @@ type PartitionNode struct {
 	PTPoffset int64  `json:"ptpOffset"`
 	Option    int8   `json:"option"`
 	DupNum    int8   `json:"dupNum"`
+	Index     int64  `json:"index"`
 }
 
 type BlockNode struct {
