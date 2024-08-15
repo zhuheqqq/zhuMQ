@@ -329,6 +329,28 @@ struct SetPartitionStateResponse{
     2: string   err
 }
 
+struct BecomeLeaderRequest {
+    1: string   Broker
+    2: string   Topic
+    3: string   Partition
+}
+
+struct BecomeLeaderResponse {
+    1: bool     ret
+}
+
+struct GetNewLeaderRequest {
+    1: string   TopicName
+    2: string   PartName
+    3: string   BlockName
+}
+
+struct GetNewLeaderResponse {
+    1: bool     Ret
+    2: string   LeaderBroker
+    3: string   HostPort
+}
+
 
 service ZkServer_Operations {
    SubResponse  Sub(1:  SubRequest  req)               //consumer used
@@ -343,4 +365,10 @@ service ZkServer_Operations {
 
        //broker 用于恢复缓存的，暂时不使用
    BroGetConfigResponse BroGetConfig(1:    BroGetConfigRequest req)
+
+       //broker成为新的leader
+   BecomeLeaderResponse    BecomeLeader(   1: BecomeLeaderRequest  req)
+       //broker获取新的Leader
+   GetNewLeaderResponse    GetNewLeader(   1: GetNewLeaderRequest  req)
+
 }
