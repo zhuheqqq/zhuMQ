@@ -43,7 +43,7 @@ func NewTopic(topic_name string) *Topic {
 		subList: make(map[string]*SubScription),
 	}
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + topic_name
+	str += "/" + Name + "/" + topic_name
 	CreateList(str)
 
 	return topic
@@ -59,7 +59,7 @@ func (t *Topic) PrepareAcceptHandle(in info) (ret string, err error) {
 
 	//设置partition中的file和fd，start_index等信息
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
 
 	file, fd, Err, err := NewFile(str)
 	if err != nil {
@@ -92,7 +92,7 @@ func (t *Topic) CloseAcceptPart(in info) (start, end int64, ret string, err erro
 		DEBUG(dError, err.Error())
 	} else {
 		str, _ := os.Getwd()
-		str += "/" + name + "/" + in.topic_name + "/" + in.part_name + "/"
+		str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/"
 		t.rmu.Lock()
 		t.Files[str+in.new_name] = t.Files[str+in.file_name]
 		delete(t.Files, str+in.file_name)
@@ -106,7 +106,7 @@ func (p *Partition) CloseAcceptMessage(in info) (start, end int64, ret string, e
 	defer p.mu.Unlock()
 	if p.state == ALIVE {
 		str, _ := os.Getwd()
-		str += "/" + name + "/" + in.topic_name + "/" + in.part_name
+		str += "/" + Name + "/" + in.topic_name + "/" + in.part_name
 		p.file_name = in.new_name
 		p.file.Update(str, in.new_name) //修改本地文件名
 		p.state = DOWN
@@ -134,7 +134,7 @@ func (t *Topic) PrepareSendHandle(in info, zkclient *zkserver_operations.Client)
 
 	//检查文件是否存在, 若存在为获得File则创建File,若没有则返回错误.
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
 	file, ok := t.Files[str]
 	if !ok {
 		file, fd, Err, err := CheckFile(str)
@@ -202,7 +202,7 @@ func (t *Topic) GetParts() map[string]*Partition {
 func (t *Topic) GetFile(in info) *File {
 	t.rmu.Lock()
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
 	File, ok := t.Files[str]
 	if !ok {
 		file, fd, Err, err := NewFile(str)

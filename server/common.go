@@ -146,3 +146,54 @@ func GetPartKeyArray(parts map[string]*Partition) []PartKey {
 func MovName(OldFilePath, NewFilePath string) error {
 	return os.Rename(OldFilePath, NewFilePath)
 }
+
+// use for Test
+type Info struct {
+	// name       string //broker name
+	Topic_name string
+	Part_name  string
+	File_name  string
+	New_name   string
+	Option     int8
+	Offset     int64
+	Size       int8
+
+	Ack int8
+
+	Producer string
+	Consumer string
+	Cmdindex int64
+	// startIndex  int64
+	// endIndex  	int64
+	Message []byte
+
+	//raft
+	Brokers map[string]string
+	Me      int
+
+	//fetch
+	LeaderBroker string
+	HostPort     string
+}
+
+// use in test
+func GetInfo(in Info) info {
+	return info{
+		topic_name:   in.Topic_name,
+		part_name:    in.Part_name,
+		file_name:    in.File_name,
+		new_name:     in.New_name,
+		option:       in.Option,
+		offset:       in.Offset,
+		size:         in.Size,
+		ack:          in.Ack,
+		producer:     in.Producer,
+		consumer:     in.Consumer,
+		cmdindex:     in.Cmdindex,
+		message:      in.Message,
+		brokers:      in.Brokers,
+		me:           in.Me,
+		LeaderBroker: in.LeaderBroker,
+		HostPort:     in.HostPort,
+	}
+}

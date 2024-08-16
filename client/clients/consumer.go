@@ -176,6 +176,8 @@ func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) (ret string, err
 				bro_cli.StarttoGet(context.Background(), rep)
 			}
 		}
+		//发送info
+		c.SendInfo(c.port, &bro_cli)
 
 		if info.Option == 3 { //psb
 			bro_cli.StarttoGet(context.Background(), rep)
