@@ -121,7 +121,7 @@ func (p *Partition) CloseAcceptMessage(in info) (start, end int64, ret string, e
 	return start, end, ret, err
 }
 
-func (t *Topic) PrepareSendHandle(in info) (ret string, err error) {
+func (t *Topic) PrepareSendHandle(in info, zkclient *zkserver_operations.Client) (ret string, err error) {
 	sub_name := GetStringfromSub(in.topic_name, in.part_name, in.option)
 
 	t.rmu.Lock()

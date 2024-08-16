@@ -314,7 +314,7 @@ func (s *Server) PrepareSendHandle(in info) (ret string, err error) {
 	}
 	s.mu.Unlock()
 	//检查或创建partition
-	return topic.PrepareSendHandle(in)
+	return topic.PrepareSendHandle(in, &s.zkclient)
 }
 
 func (s *Server) AddRaftHandle(in info) (ret string, err error) {
