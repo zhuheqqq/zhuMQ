@@ -14,7 +14,7 @@ var (
 )
 
 type Message struct {
-	Index      int64  `json:“index"`
+	Index      int64  `json:"index"`
 	Topic_name string `json:"topic_name"`
 	Part_name  string `json:"part_name"`
 	Msg        string `json:"msg"`
