@@ -17,8 +17,8 @@ import (
 // 另一个是Broker获取Zookeeper信息和调度各个Broker的调度者
 type RPCServer struct {
 	//name     string
-	srv_cli  server.Server
-	srv_bro  server.Server
+	srv_cli  *server.Server
+	srv_bro  *server.Server
 	zkinfo   zookeeper.ZKInfo
 	server   *Server
 	zkserver *ZkServer
@@ -32,44 +32,49 @@ func NewRpcServer(zkinfo zookeeper.ZKInfo) RPCServer {
 }
 
 // 启动不同类型服务器并运行其rpc服务器
-func (s *RPCServer) Start(opts_cli, opts_zks []server.Option, opt Options) error {
+func (s *RPCServer) Start(opts_cli, opts_zks, opts_raf []server.Option, opt Options) error {
 
 	switch opt.Tag {
 	case BROKER:
 		s.server = NewServer(s.zkinfo)
-		s.server.make(opt)
+		s.server.make(opt, opts_raf)
+
+		srv_cli_bro := server_operations.NewServer(s, opts_cli...)
+		s.srv_cli = &srv_cli_bro
+		DEBUG(dLog, "Broker start rpcserver for clients\n")
+		go func() {
+			err := srv_cli_bro.Run()
+
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}()
 	case ZKBROKER:
 		s.zkserver = NewZKServer(s.zkinfo)
 		s.zkserver.make(opt)
 
-		srv_bro := zkserver_operations.NewServer(s, opts_zks...)
-		s.srv_bro = srv_bro
+		srv_bro_cli := zkserver_operations.NewServer(s, opts_zks...)
+		s.srv_bro = &srv_bro_cli
 		DEBUG(dLog, "Broker start rpcserver for brokers\n")
 		go func() {
-			err := srv_bro.Run()
+			err := srv_bro_cli.Run()
 
 			if err != nil {
 				fmt.Println(err.Error())
 			}
 		}()
 	}
-	srv_cli := server_operations.NewServer(s, opts_cli...)
-	s.srv_cli = srv_cli
-	DEBUG(dLog, "Broker start rpcserver for clients\n")
-	go func() {
-		err := srv_cli.Run()
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	}()
-
 	return nil
 }
 
 // producer--->broker server
 func (s *RPCServer) ShutDown_server() {
-	s.srv_cli.Stop()
-	s.srv_bro.Stop()
+	if s.srv_bro != nil {
+		(*s.srv_bro).Stop()
+	}
+	if s.srv_cli != nil {
+		(*s.srv_cli).Stop()
+	}
 }
 
 // 处理来自consumer的推送请求
@@ -170,7 +175,7 @@ func (s *RPCServer) CreateTopic(ctx context.Context, req *api.CreateTopicRequest
 // 先在zookeeper上创建一个Partition，当生产该信息时，或消费信息时再有zkserver发送信息到broker
 // 让broker创建
 func (s *RPCServer) CreatePart(ctx context.Context, req *api.CreatePartRequest) (r *api.CreatePartResponse, err error) {
-	info := s.zkserver.CreateTopic(Info_in{
+	info := s.zkserver.CreatePart(Info_in{
 		topic_name: req.TopicName,
 		part_name:  req.PartName,
 	})
