@@ -107,8 +107,8 @@ func (p *Partition) CloseAcceptMessage(in info) (start, end int64, ret string, e
 	if p.state == ALIVE {
 		str, _ := os.Getwd()
 		str += "/" + Name + "/" + in.topic_name + "/" + in.part_name
-		p.file_name = in.new_name
 		p.file.Update(str, in.new_name) //修改本地文件名
+		p.file_name = in.new_name
 		p.state = DOWN
 		end = p.index
 		start = p.file.GetFirstIndex(p.fd)
@@ -241,6 +241,8 @@ func (t *Topic) addMessage(in info) error {
 
 	part.mu.Unlock()
 
+	part.AddMessage(in)
+
 	return nil
 }
 
@@ -317,10 +319,6 @@ func (t *Topic) RecoverRelease(sub_name, cli_name string) {
 
 }
 
-func (t *Topic) Rebalance() {
-
-}
-
 type Partition struct {
 	mu          sync.RWMutex
 	file_name   string
@@ -343,7 +341,7 @@ func NewPartition(topic_name, part_name string) *Partition {
 	}
 
 	str, _ := os.Getwd()
-	str += "/" + name + "/" + topic_name + "/" + part_name
+	str += "/" + Name + "/" + topic_name + "/" + part_name
 
 	return part
 }
@@ -353,12 +351,12 @@ func (p *Partition) StartGetMessage(file *File, fd *os.File, in info) string {
 	defer p.mu.Unlock()
 	ret := ""
 	switch p.state {
-	case START:
+	case ALIVE:
 		ret = ErrHadStart
 	case CLOSE:
-		p.queue = make([]Message, 50)
+		//p.queue = make([]Message, 50)
 
-		p.state = START
+		p.state = ALIVE
 		p.file = file
 		p.fd = fd
 		p.file_name = in.file_name
@@ -377,7 +375,7 @@ func (p *Partition) StartGetMessage(file *File, fd *os.File, in info) string {
 
 // 检查state
 // 当接收数据达到一定数量将修改zookeeper上的index
-func (p *Partition) addMessage(in info) (ret string, err error) {
+func (p *Partition) AddMessage(in info) (ret string, err error) {
 	p.mu.Lock()
 	if p.state == DOWN {
 		ret = "this partition close accept"
@@ -393,7 +391,7 @@ func (p *Partition) addMessage(in info) (ret string, err error) {
 		Msg:        in.message,
 	}
 
-	DEBUG(dLog, "part_name %v add message index is %v\n", p.key, p.index)
+	//DEBUG(dLog, "part_name %v add message index is %v\n", p.key, p.index)
 
 	p.queue = append(p.queue, msg) // 将新创建的消息对象添加到队列中
 
@@ -406,7 +404,7 @@ func (p *Partition) addMessage(in info) (ret string, err error) {
 
 		node := Key{
 			Start_index: p.start_index,
-			End_index:   p.start_index + VERTUAL_10,
+			End_index:   p.start_index + VERTUAL_10 - 1,
 		}
 
 		data_msg, err := json.Marshal(msg)
@@ -581,7 +579,7 @@ func (s *SubScription) AddConsumerInConfig(in info, cli *client_operations.Clien
 	switch in.option {
 	case TOPIC_NIL_PTP_PUSH:
 
-		s.PTP_config.AddCli(in.part_name, in.consumer, cli) //向config中ADD consumer
+		s.PTP_config.AddCli(in.consumer, cli) //向config中ADD consumer
 	case TOPIC_KEY_PSB_PUSH:
 		config, ok := s.PSB_configs[in.part_name+in.consumer]
 		if !ok {
@@ -607,9 +605,8 @@ func (s *SubScription) PullMsgs(in info) (MSGS, error) {
 type Config struct {
 	mu sync.RWMutex
 
-	part_num int  //partition数
-	cons_num int  //consumer 数
-	node_con bool //以消费者为节点还是以分区为节点进行负载均衡
+	part_num int //partition数
+	cons_num int //consumer 数
 
 	part_close chan *Part
 
@@ -630,7 +627,6 @@ func NewConfig(topic_name string, part_num int, partitions map[string]*Partition
 		mu:       sync.RWMutex{},
 		part_num: part_num,
 		cons_num: 0,
-		node_con: true,
 
 		part_close: make(chan *Part),
 		PartToCon:  make(map[string][]string),
@@ -660,25 +656,16 @@ func (s *SubScription) GetConfig() *Config {
 }
 
 // 向Clis加入此consumer的句柄，重新负载均衡，并修改Parts中的clis数组
-func (c *Config) AddCli(part_name string, cli_name string, cli *client_operations.Client) {
+func (c *Config) AddCli(cli_name string, cli *client_operations.Client) {
 	c.mu.Lock()
-
-	//consumer > part_num first
-	if c.cons_num+1 > c.part_num && c.node_con {
-		c.node_con = false
-
-		// node from consumer to partition
-		c.consistent = TurnConsistent(GetPartitionArray(c.Partitions))
-	}
 
 	c.cons_num++
 	c.Clis[cli_name] = cli
 
-	if c.node_con { //consumer is node
-		err := c.consistent.Add(cli_name)
+	err := c.consistent.Add(cli_name)
+	if err != nil {
 		DEBUG(dError, err.Error())
 	}
-	//else			//partition is node
 
 	c.mu.Unlock()
 
@@ -690,17 +677,11 @@ func (c *Config) AddCli(part_name string, cli_name string, cli *client_operation
 func (c *Config) DeleteCli(part_name string, cli_name string) {
 	c.mu.Lock()
 
-	if c.cons_num <= c.part_num && !c.node_con {
-		c.node_con = true
+	c.cons_num--
+	delete(c.Clis, cli_name)
 
-		// node from partition to consumer
-		c.consistent = TurnConsistent(GetConsumerArray(c.Clis))
-	}
-
-	if c.node_con { //consumer is node
-		err := c.consistent.Reduce(cli_name)
-		DEBUG(dError, err.Error())
-	}
+	err := c.consistent.Reduce(cli_name)
+	DEBUG(dError, err.Error())
 
 	c.mu.Unlock()
 
@@ -718,24 +699,10 @@ func (c *Config) DeleteCli(part_name string, cli_name string) {
 func (c *Config) AddPartition(in info, partition *Partition, file *File, zkclient *zkserver_operations.Client) error {
 	c.mu.Lock()
 
-	if c.cons_num < c.part_num+1 && !c.node_con {
-		c.node_con = true
-
-		//node from partition to consumer
-		c.consistent = TurnConsistent(GetConsumerArray(c.Clis))
-	}
-
 	c.part_num++
 	c.Partitions[in.part_name] = partition
 	c.Files[file.filename] = file
 
-	if !c.node_con {
-		err := c.consistent.Add(in.part_name)
-		if err != nil {
-			DEBUG(dError, err.Error())
-			return err
-		}
-	}
 	c.parts[in.part_name] = NewPart(in, file, zkclient)
 	c.parts[in.part_name].Start(c.part_close)
 	c.mu.Unlock()
@@ -753,12 +720,6 @@ func (c *Config) DeletePartition(part_name string, file *File) {
 	delete(c.Partitions, part_name)
 	delete(c.Files, file.filename)
 
-	if c.cons_num > c.part_num && c.node_con {
-		c.node_con = false
-
-		c.consistent = TurnConsistent(GetPartitionArray(c.Partitions))
-	}
-
 	//该Part协程已经关闭，该partition的文件已经消费完毕，
 	c.mu.Unlock()
 
@@ -767,33 +728,50 @@ func (c *Config) DeletePartition(part_name string, file *File) {
 }
 
 // 负载均衡，将调整后的配置存入PartToCon
+// 将Consisitent中的ConH置false, 循环两次Partitions
+// 第一次拿取 1个 Consumer
+// 第二次拿取 靠前的 ConH 为 true 的 Consumer
+// 直到遇到ConH为 false 的
 func (c *Config) RebalancePtoC() {
-	c.mu.Lock()
+
+	c.consistent.SetFreeNode() //将空闲节点设为len(consumers)
+	c.consistent.TurnZero()    //将conusmer全设为空闲
 
 	parttocon := make(map[string][]string)
 
-	if c.node_con { // node is consumer
-		for name := range c.Partitions {
-			node := c.consistent.GetNode(name)
-			var array []string
-			array, ok := parttocon[name]
-			array = append(array, node)
-			if !ok {
-				parttocon[name] = array
-			}
-		}
-	} else { // node is partition
-		for name := range c.Clis {
-			node := c.consistent.GetNode(name)
-			var array []string
-			array, ok := parttocon[node]
-			array = append(array, name)
-			if !ok {
-				parttocon[node] = array
-			}
+	c.mu.RLock()
+	Parts := c.Partitions
+	c.mu.RUnlock()
+
+	for name := range Parts {
+		node := c.consistent.GetNode(name)
+		var array []string
+		array, ok := parttocon[name]
+		array = append(array, node)
+		if !ok {
+			parttocon[name] = array
 		}
 	}
 
+	for {
+		for name := range Parts {
+			if c.consistent.GetFreeNodeNum() > 0 {
+				node := c.consistent.GetNodeFree(name)
+				var array []string
+				array, ok := parttocon[name]
+				array = append(array, node)
+				if !ok {
+					parttocon[name] = array
+				}
+			} else {
+				break
+			}
+		}
+		if c.consistent.GetFreeNodeNum() <= 0 {
+			break
+		}
+	}
+	c.mu.Lock()
 	c.PartToCon = parttocon
 	c.mu.Unlock()
 }
@@ -822,6 +800,10 @@ type Consistent struct {
 	//已绑定的consumer为true
 	nodes map[string]bool
 
+	// cconsumer以负责一个Partition则为true
+	ConH     map[string]bool
+	FreeNode int
+
 	mu sync.RWMutex
 
 	//虚拟节点个数
@@ -833,6 +815,8 @@ func NewConsistent() *Consistent {
 		hashSortedNodes:  make([]uint32, 2),
 		circle:           make(map[uint32]string),
 		nodes:            make(map[string]bool),
+		ConH:             make(map[string]bool),
+		FreeNode:         0,
 		mu:               sync.RWMutex{},
 		vertualNodeCount: VERTUAL_10,
 	}
@@ -869,6 +853,20 @@ func TurnConsistent(nodes []string) *Consistent {
 	return newconsistent
 }
 
+func (c *Consistent) SetFreeNode() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.FreeNode = len(c.ConH)
+}
+
+func (c *Consistent) GetFreeNodeNum() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.FreeNode
+}
+
 // 计算键的哈希值
 func (c *Consistent) hashKey(key string) uint32 {
 	return crc32.ChecksumIEEE([]byte(key))
@@ -886,6 +884,7 @@ func (c *Consistent) Add(node string) error {
 		return errors.New("node already existed")
 	}
 	c.nodes[node] = true
+	c.ConH[node] = false
 
 	for i := 0; i < c.vertualNodeCount; i++ {
 		virtualKey := c.hashKey(node + strconv.Itoa(i))
@@ -909,7 +908,8 @@ func (c *Consistent) Reduce(node string) error {
 	if _, ok := c.nodes[node]; !ok {
 		return errors.New("node already delete")
 	}
-	c.nodes[node] = false
+	delete(c.nodes, node)
+	delete(c.ConH, node)
 
 	for i := 0; i < c.vertualNodeCount; i++ {
 		virtualKey := c.hashKey(node + strconv.Itoa(i))
@@ -929,15 +929,52 @@ func (c *Consistent) Reduce(node string) error {
 	return nil
 }
 
+func (c *Consistent) TurnZero() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for key := range c.ConH {
+		c.ConH[key] = false
+	}
+}
+
 // 获取键对应的节点，使用一致性哈希计算节点位置
 func (c *Consistent) GetNode(key string) string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	hash := c.hashKey(key)
 	i := c.getPosition(hash)
 
-	return c.circle[c.hashSortedNodes[i]]
+	con := c.circle[c.hashSortedNodes[i]]
+
+	c.ConH[con] = true
+	c.FreeNode--
+
+	return con
+}
+
+func (c *Consistent) GetNodeFree(key string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	hash := c.hashKey(key)
+	i := c.getPosition(hash)
+
+	i += 1
+	for {
+		if i == len(c.hashSortedNodes)-1 {
+			i = 0
+		}
+		con := c.circle[c.hashSortedNodes[i]]
+		// fmt.Println("Free Node nums is ", c.FreeNode)
+		if !c.ConH[con] {
+			c.ConH[con] = true
+			c.FreeNode--
+			return con
+		}
+		i++
+	}
 }
 
 // 获取哈希值在排序后的哈希节点列表中的位置
