@@ -11,6 +11,7 @@ import (
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/client_operations"
 	"zhuMQ/kitex_gen/api/zkserver_operations"
+	"zhuMQ/logger"
 )
 
 const (
@@ -173,7 +174,7 @@ func (p *Part) Start(close chan *Part) {
 	p.fd = *p.file.OpenFile()
 	offset, err := p.file.FindOffset(&p.fd, p.index)
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 
 	p.offset = offset
@@ -181,7 +182,7 @@ func (p *Part) Start(close chan *Part) {
 	for i := 0; i < BUFF_NUM; i++ { //加载 BUFF_NUM个block到队列中
 		err := p.AddBlock()
 		if err != nil {
-			DEBUG(dError, err.Error())
+			logger.DEBUG(logger.DError, err.Error())
 		}
 	}
 
@@ -192,7 +193,7 @@ func (p *Part) Start(close chan *Part) {
 		p.state = ALIVE
 	} else {
 		p.mu.Unlock()
-		DEBUG(dError, "the part is ALIVE in before this start\n")
+		logger.DEBUG(logger.DError, "the part is ALIVE in before this start\n")
 		return
 	}
 
@@ -270,7 +271,7 @@ func (p *Part) GetDone(close chan *Part) {
 				err := p.AddBlock()
 				p.mu.Lock()
 				if err != nil {
-					DEBUG(dError, err.Error())
+					logger.DEBUG(logger.DError, err.Error())
 				}
 
 				//文件消费完成，且文件不是生产者正在写入的文件
@@ -351,7 +352,7 @@ func (p *Part) SendOneBlock(name string, cli *client_operations.Client) {
 			node, ok2 := p.buffer_node[in]
 
 			if !ok1 || !ok2 {
-				DEBUG(dError, "get msg and node from buffer the in = %v\n", in)
+				logger.DEBUG(logger.DError, "get msg and node from buffer the in = %v\n", in)
 			}
 			p.buf_done[in] = HAVEDO
 			p.mu.Unlock()
@@ -362,7 +363,7 @@ func (p *Part) SendOneBlock(name string, cli *client_operations.Client) {
 				err := p.Pub(cli, node, data_msg)
 
 				if err != nil { //超时等原因
-					DEBUG(dError, err.Error())
+					logger.DEBUG(logger.DError, err.Error())
 					num++
 					if num >= AGAIN_NUM { //超时三次，将不再向其发送
 						p.part_had <- Done{
@@ -523,7 +524,7 @@ func (no *Node) ReadMSGS(in info) (MSGS, error) {
 	if no.offset == -1 || no.start_index != in.offset {
 		no.offset, err = no.file.FindOffset(&no.fd, in.offset)
 		if err != nil {
-			DEBUG(dError, err.Error())
+			logger.DEBUG(logger.DError, err.Error())
 			return MSGS{}, err
 		}
 	}
@@ -534,7 +535,7 @@ func (no *Node) ReadMSGS(in info) (MSGS, error) {
 			if err == io.EOF {
 				break
 			} else {
-				DEBUG(dError, err.Error())
+				logger.DEBUG(logger.DError, err.Error())
 				return MSGS{}, err
 			}
 		}
@@ -542,7 +543,7 @@ func (no *Node) ReadMSGS(in info) (MSGS, error) {
 			msgs.start_index = node.Start_index
 			msgs.end_index = node.End_index
 		}
-		nums += node.Size
+		nums += int(node.Size)
 		no.offset += int64(NODE_SIZE) + int64(node.Size)
 		msgs.size = int8(nums)
 		msgs.array = append(msgs.array, msg...)

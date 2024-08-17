@@ -13,6 +13,7 @@ import (
 	"zhuMQ/kitex_gen/api/raft_operations"
 	"zhuMQ/kitex_gen/api/server_operations"
 	"zhuMQ/kitex_gen/api/zkserver_operations"
+	"zhuMQ/logger"
 	"zhuMQ/zookeeper"
 )
 
@@ -41,6 +42,8 @@ type Server struct {
 	//fetch
 	parts_fetch   map[string]string
 	brokers_fetch map[string]*server_operations.Client
+
+	me int
 }
 
 type Key struct {
@@ -104,29 +107,31 @@ func (s *Server) make(opt Options, opt_cli []server.Option) {
 	s.CheckList()
 	s.Name = opt.Name
 	Name = opt.Name
+	s.me = opt.Me
 
 	//本地创建parts——raft，为raft同步做准备
 	s.parts_rafts = NewParts_Raft()
-	go s.parts_rafts.make(opt.Name, opt_cli, s.aplych)
+	go s.parts_rafts.Make(opt.Name, opt_cli, s.aplych)
 
 	//在zookeeper上创建一个永久节点, 若存在则不需要创建
 	err := s.zk.RegisterNode(zookeeper.BrokerNode{
-		Name:     s.Name,
-		HostPort: opt.Broker_Host_Port,
+		Name:         s.Name,
+		BrokHostPort: opt.Broker_Host_Port,
+		RaftHostPort: opt.Raft_Host_Port,
 	})
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 	//创建临时节点,用于zkserver的watch
 	err = s.zk.CreateState(s.Name)
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 
 	//连接zkServer，并将自己的Info发送到zkServer,
 	zkclient, err := zkserver_operations.NewClient(opt.Name, client.WithHostPorts(opt.Zkserver_Host_Port))
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 	s.zkclient = zkclient
 
@@ -135,7 +140,7 @@ func (s *Server) make(opt Options, opt_cli []server.Option) {
 		BrokerHostPort: opt.Broker_Host_Port,
 	})
 	if err != nil || !resp.Ret {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 
 	//开启获取管道中的内容，写入文件或更新leader
@@ -154,7 +159,7 @@ func (s *Server) GetApplych(applych chan info) {
 		s.mu.RUnlock()
 
 		if !ok {
-			DEBUG(dError, "topic(%v) is not in this broker\n", msg.topic_name)
+			logger.DEBUG(logger.DError, "topic(%v) is not in this broker\n", msg.topic_name)
 		} else {
 			if msg.producer == "Leader" {
 				s.BecomeLeader(msg)
@@ -172,7 +177,7 @@ func (s *Server) BecomeLeader(in info) {
 		Partition: in.part_name,
 	})
 	if err != nil || !resp.Ret {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 }
 
@@ -186,7 +191,7 @@ func (s *Server) IntiBroker() {
 	}
 	data, err := json.Marshal(info)
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 
 	resp, err := s.zkclient.BroGetConfig(context.Background(), &api.BroGetConfigRequest{
@@ -194,7 +199,7 @@ func (s *Server) IntiBroker() {
 	})
 
 	if err != nil || !resp.Ret {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 	BroInfo := BroNodeInfo{
 		Topics: make(map[string]TopNodeInfo),
@@ -216,7 +221,7 @@ func (s *Server) HandleTopics(Topics map[string]TopNodeInfo) {
 			top.HandleParttitions(topic.Partitions)
 			s.topics[topic_name] = top
 		} else {
-			DEBUG(dWarn, "This topic(%v) had in s.topics\n", topic_name)
+			logger.DEBUG(logger.DWarn, "This topic(%v) had in s.topics\n", topic_name)
 		}
 	}
 }
@@ -247,7 +252,7 @@ func (s *Server) StartGet(in info) (err error) {
 		defer s.mu.RUnlock()
 
 		sub_name := GetStringfromSub(in.topic_name, in.part_name, in.option)
-		DEBUG(dLog, "consumer(%v) start to get topic(%v) partition(%v) offset(%v) in sub(%v)\n", in.consumer, in.topic_name, in.part_name, in.offset, sub_name)
+		logger.DEBUG(logger.DLog, "consumer(%v) start to get topic(%v) partition(%v) offset(%v) in sub(%v)\n", in.consumer, in.topic_name, in.part_name, in.offset, sub_name)
 
 	default:
 		err = errors.New("the option is not PTP or PSB")
@@ -292,7 +297,7 @@ func (s *Server) CloseAcceptHandle(in info) (start, end int64, ret string, err e
 	topic, ok := s.topics[in.topic_name]
 	if !ok {
 		ret = "this topic is not in this broker"
-		DEBUG(dError, "this topic(%d) is not in this broker\n", in.topic_name)
+		logger.DEBUG(logger.DError, "this topic(%d) is not in this broker\n", in.topic_name)
 		return 0, 0, ret, errors.New(ret)
 	}
 
@@ -320,28 +325,45 @@ func (s *Server) PrepareSendHandle(in info) (ret string, err error) {
 
 func (s *Server) AddRaftHandle(in info) (ret string, err error) {
 	//检测该Partition的Raft是否已经启动
+	logger.DEBUG(logger.DLog, "the raft brokers is %v\n", in.brokers)
 
 	s.mu.Lock()
+	Me := 0
+	index := 0
+
 	var peers []*raft_operations.Client
 	for k, v := range in.brokers {
-		if k != s.Name {
-			bro_cli, ok := s.brokers[k]
-			if !ok {
-				cli, err := raft_operations.NewClient(s.Name, client.WithHostPorts(v))
-				if err != nil {
-					return ret, err
-				}
-				s.brokers[k] = &cli
-				bro_cli = &cli
-			}
-			peers = append(peers, bro_cli)
+		logger.DEBUG(logger.DLog, "%v index (%v)  Me(%v)   k(%v) == Name(%v)\n", s.Name, index, Me, k, s.Name)
+		if Me == 0 && k == s.Name {
+			Me = index
 		}
+
+		index++
+
+		bro_cli, ok := s.brokers[k]
+		if !ok {
+			cli, err := raft_operations.NewClient(s.Name, client.WithHostPorts(v))
+			if err != nil {
+				logger.DEBUG(logger.DError, "%v new raft client fail err %v\n", s.Name, err.Error())
+				return ret, err
+			}
+			s.brokers[k] = &cli
+			bro_cli = &cli
+			logger.DEBUG(logger.DLog, "%v New client to broker %v\n", s.Name, k)
+		} else {
+			logger.DEBUG(logger.DLog, "%v had client to broker %v\n", s.Name, k)
+		}
+		peers = append(peers, bro_cli)
+
 	}
 
+	logger.DEBUG(logger.DLog, "the Broker %v raft Me %v\n", s.Name, Me)
 	//检查或创建底层part_raft
-	s.parts_rafts.AddPart_Raft(peers, in.me, in.topic_name, in.part_name, s.aplych)
+	s.parts_rafts.AddPart_Raft(peers, Me, in.topic_name, in.part_name, s.aplych)
 
 	s.mu.Unlock()
+
+	logger.DEBUG(logger.DLog, "the %v add over\n", s.Name)
 
 	return ret, err
 }
@@ -366,11 +388,11 @@ func (s *Server) AddFetchHandle(in info) (ret string, err error) {
 		topic, ok := s.topics[in.topic_name]
 		if !ok {
 			ret = "this topic is not in this broker"
-			DEBUG(dError, "%v, info(%v)\n", ret, in)
+			logger.DEBUG(logger.DError, "%v, info(%v)\n", ret, in)
 			return ret, errors.New(ret)
 		}
 		//给每个follower broker准备node（PSB_PULL），等待pull请求
-		for BrokerName, _ := range in.brokers {
+		for BrokerName := range in.brokers {
 			ret, err = topic.PrepareSendHandle(info{
 				topic_name: in.topic_name,
 				part_name:  in.part_name,
@@ -379,7 +401,7 @@ func (s *Server) AddFetchHandle(in info) (ret string, err error) {
 				option:     4, //PSB_PULL
 			}, &s.zkclient)
 			if err != nil {
-				DEBUG(dError, err.Error())
+				logger.DEBUG(logger.DError, err.Error())
 			}
 		}
 		return ret, err
@@ -390,7 +412,7 @@ func (s *Server) AddFetchHandle(in info) (ret string, err error) {
 		if !ok {
 			broker, err := server_operations.NewClient(s.Name, client.WithHostPorts(in.HostPort))
 			if err != nil {
-				DEBUG(dError, err.Error())
+				logger.DEBUG(logger.DError, err.Error())
 				return err.Error(), err
 			}
 			s.brokers_fetch[in.LeaderBroker] = &broker
@@ -403,7 +425,7 @@ func (s *Server) AddFetchHandle(in info) (ret string, err error) {
 		topic, ok := s.topics[in.topic_name]
 		if !ok {
 			ret = "this topic is not in this broker"
-			DEBUG(dError, "%v, info(%v)\n", ret, in)
+			logger.DEBUG(logger.DError, "%v, info(%v)\n", ret, in)
 			return ret, errors.New(ret)
 		}
 		s.mu.Unlock()
@@ -419,7 +441,7 @@ func (s *Server) CloseFetchHandle(in info) (ret string, err error) {
 	_, ok := s.parts_fetch[str]
 	if !ok {
 		ret := "this topic-partition is not in this brpoker"
-		DEBUG(dError, "this topic(%v)-partition(%v) is not in this brpoker\n", in.topic_name, in.part_name)
+		logger.DEBUG(logger.DError, "this topic(%v)-partition(%v) is not in this brpoker\n", in.topic_name, in.part_name)
 		return ret, errors.New(ret)
 	} else {
 
@@ -432,10 +454,10 @@ func (s *Server) CloseFetchHandle(in info) (ret string, err error) {
 
 // 处理消费者的连接请求
 func (s *Server) InfoHandle(ipport string) error {
-	DEBUG(dLog, "get consumer's ip_port %v\n", ipport)
+	logger.DEBUG(logger.DLog, "get consumer's ip_port %v\n", ipport)
 	client, err := client_operations.NewClient("clients", client.WithHostPorts(ipport))
 	if err == nil {
-		DEBUG(dLog, "connect consumer server successful\n")
+		logger.DEBUG(logger.DLog, "connect consumer server successful\n")
 		s.mu.Lock()
 		consumer, ok := s.consumers[ipport]
 		if !ok {
@@ -445,10 +467,10 @@ func (s *Server) InfoHandle(ipport string) error {
 		go s.CheckConsumer(consumer)
 		s.mu.Unlock()
 
-		DEBUG(dLog, "return resp to consumer\n")
+		logger.DEBUG(logger.DLog, "return resp to consumer\n")
 		return nil
 	}
-	DEBUG(dError, "Connect client failed\n")
+	logger.DEBUG(logger.DError, "Connect client failed\n")
 	return err
 }
 
@@ -482,7 +504,7 @@ func (s *Server) CheckConsumer(client *Client) {
 func (s *Server) SubHandle(in info) (err error) {
 	s.mu.Lock()
 
-	DEBUG(dLog, "get sub information\n")
+	logger.DEBUG(logger.DLog, "get sub information\n")
 	top, ok := s.topics[in.topic_name]
 	if !ok {
 		return errors.New("this topic not in this broker")
@@ -515,7 +537,7 @@ func (s *Server) UnSubHandle(in info) error {
 
 // 处理来自生产者的消息推送请求
 func (s *Server) PushHandle(in info) (ret string, err error) {
-	DEBUG(dLog, "get Message form producer\n")
+	logger.DEBUG(logger.DLog, "get Message form producer\n")
 	s.mu.RLock()
 	topic, ok := s.topics[in.topic_name]
 	part_raft := s.parts_rafts
@@ -523,7 +545,7 @@ func (s *Server) PushHandle(in info) (ret string, err error) {
 
 	if !ok {
 		ret = "this topic is not in this broker"
-		DEBUG(dError, "Topic %v, is not in this broker\n", in.topic_name)
+		logger.DEBUG(logger.DError, "Topic %v, is not in this broker\n", in.topic_name)
 		return ret, errors.New(ret)
 	}
 
@@ -537,7 +559,7 @@ func (s *Server) PushHandle(in info) (ret string, err error) {
 	}
 
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 		return err.Error(), err
 	}
 
@@ -564,7 +586,7 @@ func (s *Server) PullHandle(in info) (MSGS, error) {
 	topic, ok := s.topics[in.topic_name]
 	s.mu.RUnlock()
 	if !ok {
-		DEBUG(dError, "this topic is not in this broker\n")
+		logger.DEBUG(logger.DError, "this topic is not in this broker\n")
 		return MSGS{}, errors.New("this topic is not in this broker\n")
 	}
 	return topic.PullMessage(in)
@@ -581,7 +603,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 	index += 1
 	// _, err := File.FindOffset(fd, index)
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 		return err.Error(), err
 	}
 
@@ -606,7 +628,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 				num := len(in.file_name)
 				if err != nil {
 					ice++
-					DEBUG(dError, "Err %v, err(%v)\n", resp.Err, err.Error())
+					logger.DEBUG(logger.DError, "Err %v, err(%v)\n", resp.Err, err.Error())
 					if ice >= 3 {
 						//询问新的Leader
 						resp, err := s.zkclient.GetNewLeader(context.Background(), &api.GetNewLeaderRequest{
@@ -615,15 +637,15 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							BlockName: in.file_name[:num-4],
 						})
 						if err != nil {
-							DEBUG(dError, err.Error())
+							logger.DEBUG(logger.DError, err.Error())
 						}
 						s.mu.Lock()
 						_, ok := s.brokers_fetch[in.topic_name+in.part_name]
 						if !ok {
-							DEBUG(dLog, "this broker(%v) is not connected\n")
+							logger.DEBUG(logger.DLog, "this broker(%v) is not connected\n")
 							leader_bro, err := server_operations.NewClient(s.Name, client.WithHostPorts(resp.HostPort))
 							if err != nil {
-								DEBUG(dError, err.Error())
+								logger.DEBUG(logger.DError, err.Error())
 								return
 							}
 							s.brokers_fetch[resp.LeaderBroker] = &leader_bro
@@ -634,7 +656,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 					continue
 				}
 				if resp.Err == "file EOF" {
-					DEBUG(dLog, "This Partition(%d) filename(%d) is over\n", in.part_name, in.file_name)
+					logger.DEBUG(logger.DLog, "This Partition(%d) filename(%d) is over\n", in.part_name, in.file_name)
 					fd.Close()
 					return
 				}
@@ -645,7 +667,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 					//index 处于返回包的中间位置
 					//需要截断该宝包，并写入
 					//your code
-					DEBUG(dLog, "need your code\n")
+					logger.DEBUG(logger.DLog, "need your code\n")
 				}
 
 				node := Key{
@@ -677,7 +699,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 			topic, ok := s.topics[in.topic_name]
 			s.mu.RUnlock()
 			if !ok {
-				DEBUG(dError, err.Error())
+				logger.DEBUG(logger.DError, err.Error())
 			}
 			ice := 0
 			for {
@@ -686,7 +708,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 				_, ok := s.parts_fetch[in.topic_name+in.part_name+in.file_name]
 				s.mu.RUnlock()
 				if !ok {
-					DEBUG(dLog, "this topic(%v)-partition(%v) is not in this broker\n", in.topic_name, in.part_name)
+					logger.DEBUG(logger.DLog, "this topic(%v)-partition(%v) is not in this broker\n", in.topic_name, in.part_name)
 					return
 				}
 
@@ -699,7 +721,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 
 				if err != nil {
 					ice++
-					DEBUG(dError, "Err %v, err(%v)\n", resp.Err, err.Error())
+					logger.DEBUG(logger.DError, "Err %v, err(%v)\n", resp.Err, err.Error())
 
 					if ice >= 3 {
 						//询问新的Leader
@@ -709,15 +731,15 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							BlockName: "NowBlock",
 						})
 						if err != nil {
-							DEBUG(dError, err.Error())
+							logger.DEBUG(logger.DError, err.Error())
 						}
 						s.mu.Lock()
 						_, ok := s.brokers_fetch[in.topic_name+in.part_name]
 						if !ok {
-							DEBUG(dLog, "this broker(%v) is not connected\n")
+							logger.DEBUG(logger.DLog, "this broker(%v) is not connected\n")
 							leader_bro, err := server_operations.NewClient(s.Name, client.WithHostPorts(resp.HostPort))
 							if err != nil {
-								DEBUG(dError, err.Error())
+								logger.DEBUG(logger.DError, err.Error())
 								return
 							}
 							s.brokers_fetch[resp.LeaderBroker] = &leader_bro
@@ -742,7 +764,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							message:    msg.Msg,
 						})
 						if err != nil {
-							DEBUG(dError, err.Error())
+							logger.DEBUG(logger.DError, err.Error())
 						}
 					}
 					index++

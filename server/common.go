@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"zhuMQ/kitex_gen/api/client_operations"
+	"zhuMQ/logger"
 )
 
 type PartKey struct {
@@ -18,6 +19,7 @@ type Options struct {
 	Zkserver_Host_Port string
 	Broker_Host_Port   string
 	Raft_Host_Port     string
+	Me                 int
 }
 
 // broker向zookeeper发送自己的新能指标，用于按权值负载均衡
@@ -52,7 +54,8 @@ type BloNodeInfo struct {
 }
 
 type BrokerS struct {
-	Brokers map[string]string `json:"brokers"`
+	BroBrokers map[string]string `json:"brobrokers"`
+	RafBrokers map[string]string `json:"rafbrokers"`
 }
 
 const (
@@ -89,7 +92,7 @@ func CreateList(path string) error {
 		err := os.Mkdir(path, 0775)
 		if err != nil {
 			_, file, line, _ := runtime.Caller(1)
-			DEBUG(dError, "%v:%v mkdir %v error %v", file, line, path, err.Error())
+			logger.DEBUG(logger.DError, "%v:%v mkdir %v error %v", file, line, path, err.Error())
 		}
 	}
 	return nil
@@ -99,16 +102,6 @@ func CreateFile(path string) (file *os.File, err error) {
 	file, err = os.Create(path)
 	return file, err
 }
-
-//func GetClisArray(clis map[string]*client_operations.Client) []string {
-//	var array []string
-//
-//	for cli_name := range clis {
-//		array = append(array, cli_name)
-//	}
-//
-//	return array
-//}
 
 func CheckChangeCli(old map[string]*client_operations.Client, new []string) (reduce, add []string) {
 	for _, new_cli := range new {
@@ -196,4 +189,8 @@ func GetInfo(in Info) info {
 		LeaderBroker: in.LeaderBroker,
 		HostPort:     in.HostPort,
 	}
+}
+
+func GetServerInfoAply() chan info {
+	return make(chan info)
 }

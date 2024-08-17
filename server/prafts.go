@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/raft_operations"
+	"zhuMQ/logger"
 	"zhuMQ/raft"
 
 	"github.com/cloudwego/kitex/server"
@@ -94,7 +96,7 @@ func NewParts_Raft() *parts_raft {
 	}
 }
 
-func (p *parts_raft) make(name string, opts []server.Option, appench chan info) {
+func (p *parts_raft) Make(name string, opts []server.Option, appench chan info) {
 	p.appench = appench
 	p.applyCh = make(chan raft.ApplyMsg)
 	p.Add = make(chan COMD)
@@ -109,24 +111,24 @@ func (p *parts_raft) make(name string, opts []server.Option, appench chan info) 
 
 	err := p.srv_raft.Run()
 	if err != nil {
-		DEBUG(dError, "the raft run fail %v\n", err.Error())
+		logger.DEBUG_RAFT(logger.DError, "the raft run fail %v\n", err.Error())
 	}
 }
 
 func (p *parts_raft) Append(in info) (string, error) {
 	// Your code here.
 	str := in.topic_name + in.part_name
-	DEBUG(dLeader, "S%d <-- C%v putappend message(%v) topic_partition(%v)\n", p.me, in.producer, in.cmdindex, str)
+	logger.DEBUG_RAFT(logger.DLeader, "S%d <-- C%v putappend message(%v) topic_partition(%v)\n", p.me, in.producer, in.cmdindex, str)
 
 	p.mu.Lock()
 	_, isLeader := p.Partitions[str].GetState()
 	if !isLeader {
-		DEBUG(dLog, "S%d this is not leader\n", p.me)
+		logger.DEBUG_RAFT(logger.DLog, "S%d this is not leader\n", p.me)
 		return ErrWrongLeader, nil
 	}
 
 	if p.applyindexs[str] == 0 {
-		DEBUG(dLog, "S%d the snap not applied applyindex is %v\n", p.me, p.applyindexs[str])
+		logger.DEBUG_RAFT(logger.DLog, "S%d the snap not applied applyindex is %v\n", p.me, p.applyindexs[str])
 		p.mu.Unlock()
 		time.Sleep(200 * time.Millisecond)
 		return ErrTimeOut, nil
@@ -156,7 +158,7 @@ func (p *parts_raft) Append(in info) (string, error) {
 	}
 
 	p.mu.Lock()
-	DEBUG(dLog, "S%d lock 285\n", p.me)
+	logger.DEBUG_RAFT(logger.DLog, "S%d lock 285\n", p.me)
 	in2, okk2 := p.CSM[str][in.producer]
 	if !okk2 {
 		p.CSM[str][in.producer] = 0
@@ -174,7 +176,7 @@ func (p *parts_raft) Append(in info) (string, error) {
 	} else {
 
 		p.mu.Lock()
-		DEBUG(dLog, "S%d lock 312\n", p.me)
+		logger.DEBUG_RAFT(logger.DLog, "S%d lock 312\n", p.me)
 		lastindex, ok := p.CSM[str][in.producer]
 		if !ok {
 			p.CSM[str][in.producer] = 0
@@ -188,15 +190,15 @@ func (p *parts_raft) Append(in info) (string, error) {
 				if index == out.index {
 					return OK, nil
 				} else {
-					DEBUG(dLog, "S%d index != out.index pytappend %d != %d\n", p.me, index, out.index)
+					logger.DEBUG_RAFT(logger.DLog, "S%d index != out.index pytappend %d != %d\n", p.me, index, out.index)
 				}
 
 			case <-time.After(TIMEOUT * time.Microsecond):
 				_, isLeader := p.Partitions[str].GetState()
 				ret := ErrTimeOut
 				p.mu.Lock()
-				DEBUG(dLog, "S%d lock 332\n", p.me)
-				DEBUG(dLeader, "S%d time out\n", p.me)
+				logger.DEBUG_RAFT(logger.DLog, "S%d lock 332\n", p.me)
+				logger.DEBUG_RAFT(logger.DLeader, "S%d time out\n", p.me)
 				if !isLeader {
 					ret = ErrWrongLeader
 					p.CSM[str][in.producer] = lastindex
@@ -212,7 +214,7 @@ func (p *parts_raft) Append(in info) (string, error) {
 // some problem
 func (p *parts_raft) Kill(str string) {
 	atomic.StoreInt32(&p.dead, 1)
-	DEBUG(dLog, "S%d kill\n", p.me)
+	logger.DEBUG_RAFT(logger.DLog, "S%d kill\n", p.me)
 	// p.Partitions[str].Kill()
 	// Your code here, if desired.
 }
@@ -233,7 +235,7 @@ func (p *parts_raft) SendSnapShot(str string) {
 		Apliedindex: p.applyindexs[str],
 	}
 	e.Encode(S)
-	DEBUG(dSnap, "S%d the size need to snap\n", p.me)
+	logger.DEBUG_RAFT(logger.DSnap, "S%d the size need to snap\n", p.me)
 	data := w.Bytes()
 	go p.Partitions[str].Snapshot(S.Apliedindex, data)
 	// X, num := kv.rf.RaftSize()
@@ -245,7 +247,7 @@ func (p *parts_raft) CheckSnap() {
 
 	for str, raft := range p.Partitions {
 		X, num := raft.RaftSize()
-		DEBUG(dSnap, "S%d the size is (%v) applidindex(%v) X(%v)\n", p.me, num, p.applyindexs[str], X)
+		logger.DEBUG_RAFT(logger.DSnap, "S%d the size is (%v) applidindex(%v) X(%v)\n", p.me, num, p.applyindexs[str], X)
 		if num >= int(float64(p.maxraftstate)) {
 			if p.applyindexs[str] == 0 || p.applyindexs[str] <= X {
 				// kv.mu.Unlock()
@@ -259,9 +261,7 @@ func (p *parts_raft) CheckSnap() {
 
 func (p *parts_raft) StartServer() {
 
-	DEBUG(dSnap, "S%d parts_raft start\n", p.me)
-
-	LOGinit()
+	logger.DEBUG_RAFT(logger.DSnap, "S%d parts_raft start\n", p.me)
 
 	go func() {
 
@@ -273,23 +273,23 @@ func (p *parts_raft) StartServer() {
 					if m.CommandValid {
 						start := time.Now()
 
-						DEBUG(dLog, "S%d try lock 847\n", p.me)
+						logger.DEBUG_RAFT(logger.DLog, "S%d try lock 847\n", p.me)
 						p.mu.Lock()
-						DEBUG(dLog, "S%d success lock 847\n", p.me)
+						logger.DEBUG_RAFT(logger.DLog, "S%d success lock 847\n", p.me)
 						ti := time.Since(start).Milliseconds()
-						DEBUG(dLog2, "S%d AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%d\n", p.me, ti)
+						logger.DEBUG_RAFT(logger.DLog2, "S%d AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%d\n", p.me, ti)
 
 						O := m.Command.(Op)
 
-						DEBUG(dLog, "S%d TTT CommandValid(%v) applyindex(%v) CommandIndex(%v) CDM[C%v](%v) from(%v)\n", p.me, m.CommandValid, p.applyindexs[O.Tpart], m.CommandIndex, O.Cli_index, O.Cmd_index, O.Ser_index)
+						logger.DEBUG_RAFT(logger.DLog, "S%d TTT CommandValid(%v) applyindex(%v) CommandIndex(%v) CDM[C%v](%v) from(%v)\n", p.me, m.CommandValid, p.applyindexs[O.Tpart], m.CommandIndex, O.Cli_index, O.Cmd_index, O.Ser_index)
 
 						if p.applyindexs[O.Tpart]+1 == m.CommandIndex {
 
 							if O.Cli_index == "TIMEOUT" {
-								DEBUG(dLog, "S%d for TIMEOUT update applyindex %v to %v\n", p.me, p.applyindexs[O.Tpart], m.CommandIndex)
+								logger.DEBUG_RAFT(logger.DLog, "S%d for TIMEOUT update applyindex %v to %v\n", p.me, p.applyindexs[O.Tpart], m.CommandIndex)
 								p.applyindexs[O.Tpart] = m.CommandIndex
 							} else if p.CDM[O.Tpart][O.Cli_index] < O.Cmd_index {
-								DEBUG(dLeader, "S%d update CDM[%v] from %v to %v update applyindex %v to %v\n", p.me, O.Cli_index, p.CDM[O.Tpart][O.Cli_index], O.Cmd_index, p.applyindexs[O.Tpart], m.CommandIndex)
+								logger.DEBUG_RAFT(logger.DLeader, "S%d update CDM[%v] from %v to %v update applyindex %v to %v\n", p.me, O.Cli_index, p.CDM[O.Tpart][O.Cli_index], O.Cmd_index, p.applyindexs[O.Tpart], m.CommandIndex)
 								p.applyindexs[O.Tpart] = m.CommandIndex
 
 								p.CDM[O.Tpart][O.Cli_index] = O.Cmd_index
@@ -312,15 +312,15 @@ func (p *parts_raft) StartServer() {
 
 								}
 							} else if p.CDM[O.Tpart][O.Cli_index] == O.Cmd_index {
-								DEBUG(dLog2, "S%d this cmd had done, the log had two update applyindex %v to %v\n", p.me, p.applyindexs[O.Tpart], m.CommandIndex)
+								logger.DEBUG_RAFT(logger.DLog2, "S%d this cmd had done, the log had two update applyindex %v to %v\n", p.me, p.applyindexs[O.Tpart], m.CommandIndex)
 								p.applyindexs[O.Tpart] = m.CommandIndex
 							} else {
-								DEBUG(dLog2, "S%d the topic_partition(%v) producer(%v) OIndex(%v) < CDM(%v)\n", p.me, O.Tpart, O.Cli_index, O.Cmd_index, p.CDM[O.Tpart][O.Cli_index])
+								logger.DEBUG_RAFT(logger.DLog2, "S%d the topic_partition(%v) producer(%v) OIndex(%v) < CDM(%v)\n", p.me, O.Tpart, O.Cli_index, O.Cmd_index, p.CDM[O.Tpart][O.Cli_index])
 								p.applyindexs[O.Tpart] = m.CommandIndex
 							}
 
 						} else if p.applyindexs[O.Tpart]+1 < m.CommandIndex {
-							DEBUG(dWarn, "S%d the applyindex + 1 (%v) < commandindex(%v)\n", p.me, p.applyindexs[O.Tpart], m.CommandIndex)
+							logger.DEBUG_RAFT(logger.DWarn, "S%d the applyindex + 1 (%v) < commandindex(%v)\n", p.me, p.applyindexs[O.Tpart], m.CommandIndex)
 							// kv.applyindex = m.CommandIndex
 						}
 
@@ -329,7 +329,7 @@ func (p *parts_raft) StartServer() {
 						}
 
 						p.mu.Unlock()
-						DEBUG(dLog, "S%d Unlock 1369\n", p.me)
+						logger.DEBUG_RAFT(logger.DLog, "S%d Unlock 1369\n", p.me)
 
 						// if maxraftstate > 0 {
 						// 	go kv.CheckSnap()
@@ -338,24 +338,24 @@ func (p *parts_raft) StartServer() {
 					} else { //read snapshot
 						r := bytes.NewBuffer(m.Snapshot)
 						d := raft.NewDecoder(r)
-						DEBUG(dSnap, "S%d the snapshot applied\n", p.me)
+						logger.DEBUG_RAFT(logger.DSnap, "S%d the snapshot applied\n", p.me)
 						var S SnapShot
 						p.mu.Lock()
-						DEBUG(dLog, "S%d lock 1029\n", p.me)
+						logger.DEBUG_RAFT(logger.DLog, "S%d lock 1029\n", p.me)
 						if d.Decode(&S) != nil {
 							p.mu.Unlock()
-							DEBUG(dLog, "S%d Unlock 1384\n", p.me)
-							DEBUG(dSnap, "S%d labgob fail\n", p.me)
+							logger.DEBUG_RAFT(logger.DLog, "S%d Unlock 1384\n", p.me)
+							logger.DEBUG(logger.DSnap, "S%d labgob fail\n", p.me)
 						} else {
 							p.CDM[S.Tpart] = S.Cdm
 							p.CSM[S.Tpart] = S.Csm
 							// kv.config = S.Config
 							// kv.rpcindex = S.Rpcindex
 							// kv.check = false
-							DEBUG(dSnap, "S%d recover by SnapShot update applyindex(%v) to %v\n", p.me, p.applyindexs[S.Tpart], S.Apliedindex)
+							logger.DEBUG_RAFT(logger.DSnap, "S%d recover by SnapShot update applyindex(%v) to %v\n", p.me, p.applyindexs[S.Tpart], S.Apliedindex)
 							p.applyindexs[S.Tpart] = S.Apliedindex
 							p.mu.Unlock()
-							DEBUG(dLog, "S%d Unlock 1397\n", p.me)
+							logger.DEBUG_RAFT(logger.DLog, "S%d Unlock 1397\n", p.me)
 						}
 
 					}
@@ -367,7 +367,7 @@ func (p *parts_raft) StartServer() {
 						Cmd_index: -1,
 						Operate:   "TIMEOUT",
 					}
-					DEBUG(dLog, "S%d have log time applied\n", p.me)
+					logger.DEBUG_RAFT(logger.DLog, "S%d have log time applied\n", p.me)
 					p.mu.RLock()
 					for str, raft := range p.Partitions {
 						O.Tpart = str
@@ -394,6 +394,22 @@ func (p *parts_raft) AddPart_Raft(peers []*raft_operations.Client, me int, topic
 		p.Partitions[str] = part_raft
 	}
 	p.mu.Unlock()
+}
+
+func (p *parts_raft) DeletePart_raft(TopicName, PartName string) error {
+	str := TopicName + PartName
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	raft, ok := p.Partitions[str]
+	if !ok {
+		logger.DEBUG_RAFT(logger.DError, "this tpoic-partition(%v) is not in this broker\n", str)
+		return errors.New("this tpoic-partition is not in this broker")
+	} else {
+		raft.Kill()
+		delete(p.Partitions, str)
+		return nil
+	}
 }
 
 // 设置partitoin中谁来做leader
@@ -423,7 +439,15 @@ func (p *parts_raft) AppendEntries(ctx context.Context, rep *api.AppendEntriesAr
 	var array []raft.LogNode
 	json.Unmarshal(rep.Entries, &array)
 	p.mu.RLock()
-	resp := p.Partitions[str].AppendEntries(&raft.AppendEntriesArgs{
+	raft_ptr, ok := p.Partitions[str]
+	p.mu.RUnlock()
+	if !ok {
+		logger.DEBUG(logger.DWarn, "raft(%v) is not get\n", str)
+		time.Sleep(time.Second * 10)
+		return
+	}
+
+	resp := raft_ptr.AppendEntries(&raft.AppendEntriesArgs{
 		Term:         int(rep.Term),
 		LeaderId:     int(rep.LeaderId),
 		PrevLogIndex: int(rep.PrevLogIndex),
@@ -443,7 +467,15 @@ func (p *parts_raft) AppendEntries(ctx context.Context, rep *api.AppendEntriesAr
 func (p *parts_raft) SnapShot(ctx context.Context, rep *api.SnapShotArgs_) (r *api.SnapShotReply, err error) {
 	str := rep.TopicName + rep.PartName
 	p.mu.RLock()
-	resp := p.Partitions[str].InstallSnapshot(&raft.SnapShotArgs{
+	raft_ptr, ok := p.Partitions[str]
+	p.mu.RUnlock()
+	if !ok {
+		logger.DEBUG(logger.DWarn, "raft(%v) is not get\n", str)
+		time.Sleep(time.Second * 10)
+		return
+	}
+
+	resp := raft_ptr.InstallSnapshot(&raft.SnapShotArgs{
 		Term:              int(rep.Term),
 		LeaderId:          int(rep.LeaderId),
 		LastIncludedIndex: int(rep.LastIncludedIndex),
@@ -451,8 +483,15 @@ func (p *parts_raft) SnapShot(ctx context.Context, rep *api.SnapShotArgs_) (r *a
 		Log:               rep.Log,
 		Snapshot:          rep.Snapshot,
 	})
-	p.mu.RUnlock()
+
 	return &api.SnapShotReply{
 		Term: int8(resp.Term),
+	}, nil
+}
+
+func (p *parts_raft) Pingpongtest(ctx context.Context, rep *api.PingPongArgs_) (r *api.PingPongReply, err error) {
+
+	return &api.PingPongReply{
+		Pong: true,
 	}, nil
 }

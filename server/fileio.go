@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"zhuMQ/logger"
 )
 
 type File struct {
@@ -22,13 +23,13 @@ func NewFile(path_name string) (file *File, fd *os.File, Err string, err error) 
 		fd, err = CreateFile(path_name)
 		if err != nil {
 			Err = "CreatFileFail"
-			DEBUG(dError, err.Error())
+			logger.DEBUG(logger.DError, err.Error())
 			return nil, nil, Err, err
 		}
 	} else {
 		fd, err = os.OpenFile(path_name, os.O_APPEND|os.O_RDWR, os.ModeAppend|os.ModePerm)
 		if err != nil {
-			DEBUG(dError, err.Error())
+			logger.DEBUG(logger.DError, err.Error())
 			Err = "OpenFile"
 			return nil, nil, Err, err
 		}
@@ -47,12 +48,12 @@ func CheckFile(path_name string) (file *File, fd *os.File, Err string, err error
 
 		Err = "NotFile"
 		err = errors.New(Err)
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 		return nil, nil, Err, err
 	} else {
 		fd, err = os.OpenFile(path_name, os.O_APPEND|os.O_RDWR, os.ModeAppend|os.ModePerm)
 		if err != nil {
-			DEBUG(dError, err.Error())
+			logger.DEBUG(logger.DError, err.Error())
 			Err = "OpenFile"
 			return nil, nil, Err, err
 		}
@@ -96,7 +97,7 @@ func (f *File) GetFirstIndex(file *os.File) int64 {
 
 	if err == io.EOF {
 		//读到文件末尾
-		DEBUG(dLeader, "read All file, do not find this index")
+		logger.DEBUG(logger.DLeader, "read All file, do not find this index")
 		return 0
 	}
 
@@ -116,8 +117,8 @@ func (f *File) WriteFile(file *os.File, node Key, data_msg []byte) bool {
 	data_node := &bytes.Buffer{}
 	err := binary.Write(data_node, binary.BigEndian, node)
 	if err != nil {
-		DEBUG(dError, err.Error())
-		DEBUG(dError, "%v turn bytes fail\n", node)
+		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v turn bytes fail\n", node)
 		return false
 	}
 
@@ -221,7 +222,7 @@ func (f *File) ReadBytes(file *os.File, offset int64) (Key, []byte, error) {
 		return node, nil, errors.New("read node size is not NODE_SIZE")
 	}
 	if err == io.EOF { //读到文件末尾
-		DEBUG(dLeader, "read All file, do not find this index")
+		logger.DEBUG(logger.DLeader, "read All file, do not find this index")
 		return node, nil, err
 	}
 

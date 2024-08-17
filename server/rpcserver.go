@@ -9,6 +9,7 @@ import (
 	"zhuMQ/kitex_gen/api"
 	"zhuMQ/kitex_gen/api/server_operations"
 	"zhuMQ/kitex_gen/api/zkserver_operations"
+	"zhuMQ/logger"
 	"zhuMQ/zookeeper"
 )
 
@@ -25,7 +26,7 @@ type RPCServer struct {
 }
 
 func NewRpcServer(zkinfo zookeeper.ZKInfo) RPCServer {
-	LOGinit()
+	logger.LOGinit()
 	return RPCServer{
 		zkinfo: zkinfo,
 	}
@@ -41,7 +42,7 @@ func (s *RPCServer) Start(opts_cli, opts_zks, opts_raf []server.Option, opt Opti
 
 		srv_cli_bro := server_operations.NewServer(s, opts_cli...)
 		s.srv_cli = &srv_cli_bro
-		DEBUG(dLog, "Broker start rpcserver for clients\n")
+		logger.DEBUG(logger.DLog, "%v the raft %v start rpcserver for clients\n", opt.Name, opt.Me)
 		go func() {
 			err := srv_cli_bro.Run()
 
@@ -55,7 +56,7 @@ func (s *RPCServer) Start(opts_cli, opts_zks, opts_raf []server.Option, opt Opti
 
 		srv_bro_cli := zkserver_operations.NewServer(s, opts_zks...)
 		s.srv_bro = &srv_bro_cli
-		DEBUG(dLog, "Broker start rpcserver for brokers\n")
+		logger.DEBUG(logger.DLog, "Broker start rpcserver for brokers\n")
 		go func() {
 			err := srv_bro_cli.Run()
 
@@ -88,7 +89,7 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 		size:       req.Size,
 	})
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 	}
 	return &api.PushResponse{
 		Ret: true,
@@ -109,7 +110,7 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 		if err == io.EOF && ret.size == 0 {
 			Err = "file EOF"
 		} else {
-			DEBUG(dError, err.Error())
+			logger.DEBUG(logger.DError, err.Error())
 			return &api.PullResponse{
 				Ret: false,
 			}, nil
@@ -263,7 +264,7 @@ func (s *RPCServer) ConStartGetBroker(ctx context.Context, req *api.ConStartGetB
 func (s *RPCServer) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *api.BroInfoResponse, err error) {
 	err = s.zkserver.HandleBroInfo(req.BrokerName, req.BrokerHostPort)
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 		return &api.BroInfoResponse{
 			Ret: false,
 		}, err
@@ -281,7 +282,7 @@ func (s *RPCServer) UpdateOffset(ctx context.Context, req *api.UpdateOffsetReque
 		index:      req.Offset,
 	})
 	if err != nil {
-		DEBUG(dError, err.Error())
+		logger.DEBUG(logger.DError, err.Error())
 		return &api.UpdateOffsetResponse{
 			Ret: false,
 		}, err
@@ -356,7 +357,7 @@ func (s *RPCServer) CloseAccept(ctx context.Context, req *api.CloseAcceptRequest
 		new_name:   req.Newfilename_,
 	})
 	if err != nil {
-		DEBUG(dError, "Err %v err(%v)\n", ret, err.Error())
+		logger.DEBUG(logger.DError, "Err %v err(%v)\n", ret, err.Error())
 		return &api.CloseAcceptResponse{
 			Ret: false,
 		}, err
@@ -440,7 +441,7 @@ func (s *RPCServer) PrepareState(ctx context.Context, req *api.PrepareStateReque
 		topic_name: req.TopicName,
 		part_name:  req.PartName,
 		option:     req.State,
-		brokers:    Brokers.Brokers,
+		brokers:    Brokers.BroBrokers,
 	})
 	if err != nil {
 		return &api.PrepareStateResponse{
@@ -456,13 +457,16 @@ func (s *RPCServer) PrepareState(ctx context.Context, req *api.PrepareStateReque
 }
 
 func (s *RPCServer) AddRaftPartition(ctx context.Context, req *api.AddRaftPartitionRequest) (r *api.AddRaftPartitionResponse, err error) {
-	brokers := make(map[string]string)
-	json.Unmarshal(req.Brokers, brokers)
+	var Brokers BrokerS
+	json.Unmarshal(req.Brokers, &Brokers)
+
+	logger.DEBUG(logger.DLog, "the brokers in rpc is %v\n", req.Brokers)
+	logger.DEBUG(logger.DLog, "Unmarshal brokers is %v\n", Brokers.RafBrokers)
 
 	ret, err := s.server.AddRaftHandle(info{
 		topic_name: req.TopicName,
 		part_name:  req.PartName,
-		brokers:    brokers,
+		brokers:    Brokers.RafBrokers,
 	})
 	if err != nil {
 		return &api.AddRaftPartitionResponse{
@@ -497,15 +501,15 @@ func (s *RPCServer) CloseRaftPartition(ctx context.Context, req *api.CloseRaftPa
 
 func (s *RPCServer) AddFetchPartition(ctx context.Context, req *api.AddFetchPartitionRequest) (r *api.AddFetchPartitionResponse, err error) {
 	//BrokerName to HostPort
-	brokers := make(map[string]string)
-	json.Unmarshal(req.Brokers, brokers)
+	var Brokers BrokerS
+	json.Unmarshal(req.Brokers, &Brokers)
 
 	ret, err := s.server.AddFetchHandle(info{
 		topic_name:   req.TopicName,
 		part_name:    req.PartName,
 		LeaderBroker: req.LeaderBroker,
 		HostPort:     req.HostPort,
-		brokers:      brokers,
+		brokers:      Brokers.BroBrokers,
 		file_name:    req.FileName,
 	})
 	if err != nil {

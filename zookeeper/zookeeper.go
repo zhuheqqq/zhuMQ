@@ -37,9 +37,10 @@ func NewZK(info ZKInfo) *ZK {
 }
 
 type BrokerNode struct {
-	Name     string `json:"name"`
-	HostPort string `json:"hostPort"`
-	Pnum     int    `json:"pNum"`
+	Name         string `json:"name"`
+	BrokHostPort string `json:"brokhostPort"`
+	Pnum         int    `json:"pNum"`
+	RaftHostPort string `json:"raftHostPort"`
 	//一些负载情况
 }
 
@@ -80,13 +81,13 @@ type DuplicateNode struct {
 }
 
 type Part struct {
-	Topic_name string
-	Part_name  string
-	BrokerName string
-	Host_Port  string
-	PTP_index  int64
-	File_name  string
-	Err        string
+	Topic_name    string
+	Part_name     string
+	BrokerName    string
+	BrokHost_Port string
+	PTP_index     int64
+	File_name     string
+	Err           string
 }
 
 type SubscriptionNode struct {
