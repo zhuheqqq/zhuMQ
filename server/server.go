@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/cloudwego/kitex/client"
+	"github.com/cloudwego/kitex/server"
 	"os"
 	"sync"
 	"zhuMQ/kitex_gen/api"
@@ -20,7 +21,7 @@ var (
 )
 
 const (
-	NODE_SIZE = 42
+	NODE_SIZE = 24
 )
 
 // 一个topic包含多个消息分区
@@ -45,7 +46,7 @@ type Server struct {
 type Key struct {
 	Start_index int64 `json:"start_index"`
 	End_index   int64 `json:"end_index"`
-	Size        int   `json:"size"`
+	Size        int64 `json:"size"`
 }
 
 type Message struct {
@@ -91,7 +92,7 @@ func NewServer(zkinfo zookeeper.ZKInfo) *Server {
 }
 
 // 初始化server实例
-func (s *Server) make(opt Options) {
+func (s *Server) make(opt Options, opt_cli []server.Option) {
 	s.topics = make(map[string]*Topic)
 	s.consumers = make(map[string]*Client)
 	s.brokers = make(map[string]*raft_operations.Client)
@@ -102,11 +103,11 @@ func (s *Server) make(opt Options) {
 	name = GetIpport()
 	s.CheckList()
 	s.Name = opt.Name
-	name = opt.Name
+	Name = opt.Name
 
 	//本地创建parts——raft，为raft同步做准备
 	s.parts_rafts = NewParts_Raft()
-	go s.parts_rafts.make(opt.Name, opt.Raft_Host_Port, s.aplych)
+	go s.parts_rafts.make(opt.Name, opt_cli, s.aplych)
 
 	//在zookeeper上创建一个永久节点, 若存在则不需要创建
 	err := s.zk.RegisterNode(zookeeper.BrokerNode{
@@ -258,7 +259,7 @@ func (s *Server) StartGet(in info) (err error) {
 // 检查并创建文件或目录
 func (s *Server) CheckList() {
 	str, _ := os.Getwd()
-	str += "/" + name
+	str += "/" + Name
 	ret := CheckFileOrList(str)
 	if !ret {
 		CreateList(str)
@@ -650,7 +651,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 				node := Key{
 					Start_index: resp.StartIndex,
 					End_index:   resp.EndIndex,
-					Size:        len(resp.Msgs),
+					Size:        int64(len(resp.Msgs)),
 				}
 
 				File.WriteFile(fd, node, resp.Msgs)

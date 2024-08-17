@@ -529,7 +529,7 @@ func (no *Node) ReadMSGS(in info) (MSGS, error) {
 	}
 	nums := 0
 	for nums < int(in.size) {
-		node, msg, err := no.file.ReadByte(&no.fd, no.offset)
+		node, msg, err := no.file.ReadBytes(&no.fd, no.offset)
 		if err != nil {
 			if err == io.EOF {
 				break

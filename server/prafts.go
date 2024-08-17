@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -95,7 +94,7 @@ func NewParts_Raft() *parts_raft {
 	}
 }
 
-func (p *parts_raft) make(name, host_port string, appench chan info) {
+func (p *parts_raft) make(name string, opts []server.Option, appench chan info) {
 	p.appench = appench
 	p.applyCh = make(chan raft.ApplyMsg)
 	p.Add = make(chan COMD)
@@ -105,15 +104,12 @@ func (p *parts_raft) make(name, host_port string, appench chan info) {
 	p.Partitions = make(map[string]*raft.Raft)
 	p.applyindexs = make(map[string]int)
 
-	addr, _ := net.ResolveIPAddr("tcp", host_port)
-	var opts []server.Option
-	opts = append(opts, server.WithServiceAddr(addr))
-
-	p.srv_raft = raft_operations.NewServer(p, opts...)
+	srv_raft := raft_operations.NewServer(p, opts...)
+	p.srv_raft = srv_raft
 
 	err := p.srv_raft.Run()
 	if err != nil {
-		DEBUG(dError, err.Error())
+		DEBUG(dError, "the raft run fail %v\n", err.Error())
 	}
 }
 

@@ -412,7 +412,7 @@ func (p *Partition) AddMessage(in info) (ret string, err error) {
 		if err != nil {
 			DEBUG(dError, "%v turn json fail\n", msg)
 		}
-		node.Size = len(data_msg)
+		node.Size = int64(len(data_msg))
 
 		if !p.file.WriteFile(p.fd, node, data_msg) {
 			DEBUG(dError, "write to %v faile\n", p.file_name)
@@ -663,7 +663,7 @@ func (c *Config) AddCli(cli_name string, cli *client_operations.Client) {
 	c.cons_num++
 	c.Clis[cli_name] = cli
 
-	err := c.consistent.Add(cli_name)
+	err := c.consistent.Add(cli_name, 1)
 	if err != nil {
 		DEBUG(dError, err.Error())
 	}
@@ -848,7 +848,7 @@ func TurnConsistent(nodes []string) *Consistent {
 	newconsistent := NewConsistent()
 
 	for _, node := range nodes {
-		newconsistent.Add(node)
+		newconsistent.Add(node, 1)
 	}
 
 	return newconsistent
@@ -874,7 +874,7 @@ func (c *Consistent) hashKey(key string) uint32 {
 }
 
 // add consumer name as node
-func (c *Consistent) Add(node string) error {
+func (c *Consistent) Add(node string, power int) error {
 	if node == "" {
 		return nil
 	}
@@ -887,7 +887,7 @@ func (c *Consistent) Add(node string) error {
 	c.nodes[node] = true
 	c.ConH[node] = false
 
-	for i := 0; i < c.vertualNodeCount; i++ {
+	for i := 0; i < c.vertualNodeCount*power; i++ {
 		virtualKey := c.hashKey(node + strconv.Itoa(i))
 		c.circle[virtualKey] = node
 		c.hashSortedNodes = append(c.hashSortedNodes, virtualKey)

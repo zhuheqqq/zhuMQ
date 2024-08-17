@@ -164,7 +164,7 @@ func (f *File) ReadFile(file *os.File, offset int64) (Key, []Message, error) {
 	size, err = file.ReadAt(data_msg, offset)
 
 	// DEBUG(dLog, "the size is %v, data is %v offset is %v, node.Size is %v\n", size, data_node, offset, node.Size)
-	if size != node.Size {
+	if int64(size) != node.Size {
 		return node, msg, errors.New("read msg size is not NODE_SIZE")
 	}
 	if err == io.EOF { //读到文件末尾
@@ -232,7 +232,7 @@ func (f *File) ReadBytes(file *os.File, offset int64) (Key, []byte, error) {
 	offset += +int64(f.node_size)
 	size, err = file.ReadAt(data_msg, offset)
 
-	if size != node.Size {
+	if int64(size) != node.Size {
 		return node, nil, errors.New("read msg size is not NODE_SIZE")
 	}
 	if err == io.EOF { //读到文件末尾
