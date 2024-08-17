@@ -114,8 +114,5 @@ func main() {
 	fmt.Println(msg_message)
 
 	file.Close()
-	// str, _ := os.Getwd()
-	// path1 := str + "/" + "Broker" + "/" + "phone_number" + "/" + "xian" + "/" + "NowBlock.txt"
-	// path2 := str + "/" + "Broker" + "/" + "phone_number" + "/" + "xian" + "/" + "Block1.txt"
 
 }

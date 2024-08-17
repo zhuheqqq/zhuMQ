@@ -165,6 +165,7 @@ func (t *Topic) PrepareSendHandle(in info, zkclient *zkserver_operations.Client)
 	return ret, err
 }
 
+// 处理消费者开始消费某个topic
 func (t *Topic) HandleStartToGet(sub_name string, in info, cli *client_operations.Client) (err error) {
 	t.rmu.RLock()
 	defer t.rmu.RUnlock()
@@ -270,7 +271,7 @@ const (
 // topic + "nil" + "psb" (pub and sub consumer比partition为 n : n)广播分发
 func GetStringfromSub(top_name, part_name string, option int8) string {
 	ret := top_name
-	if option == TOPIC_NIL_PTP_PUSH || option == TOPIC_NIL_PTP_PULL { // 订阅发布模式
+	if option == TOPIC_NIL_PTP_PUSH || option == TOPIC_NIL_PTP_PULL {
 		ret = ret + "NIL" + "ptp" //point to point
 	} else if option == TOPIC_KEY_PSB_PUSH || option == TOPIC_KEY_PSB_PULL {
 		ret = ret + part_name + "psb" //pub and sub

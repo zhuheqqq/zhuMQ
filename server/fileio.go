@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
@@ -34,7 +36,7 @@ func NewFile(path_name string) (file *File, fd *os.File, Err string, err error) 
 
 	file = &File{
 		mu:        sync.RWMutex{},
-		filename:  name,
+		filename:  path_name,
 		node_size: NODE_SIZE,
 	}
 	return file, fd, "ok", err
@@ -44,7 +46,7 @@ func CheckFile(path_name string) (file *File, fd *os.File, Err string, err error
 	if !CheckFileOrList(path_name) {
 
 		Err = "NotFile"
-		errors.New(Err)
+		err = errors.New(Err)
 		DEBUG(dError, err.Error())
 		return nil, nil, Err, err
 	} else {
@@ -58,7 +60,7 @@ func CheckFile(path_name string) (file *File, fd *os.File, Err string, err error
 
 	file = &File{
 		mu:        sync.RWMutex{},
-		filename:  name,
+		filename:  path_name,
 		node_size: NODE_SIZE,
 	}
 	return file, fd, "ok", err
@@ -66,10 +68,10 @@ func CheckFile(path_name string) (file *File, fd *os.File, Err string, err error
 
 // 修改文件名
 func (f *File) Update(path, file_name string) error {
-	OldFilePath := path + "/" + f.filename
+	OldFilePath := f.filename
 	NewFilePath := path + "/" + file_name
 	f.mu.Lock()
-	f.filename = file_name
+	f.filename = NewFilePath
 	f.mu.Unlock()
 
 	return MovName(OldFilePath, NewFilePath)
@@ -100,8 +102,6 @@ func (f *File) GetFirstIndex(file *os.File) int64 {
 
 	json.Unmarshal(data_node, &node)
 
-	f.mu.RUnlock()
-
 	return node.Start_index
 }
 
@@ -113,17 +113,20 @@ func (f *File) GetIndex(file *os.File) int64 {
 }
 
 func (f *File) WriteFile(file *os.File, node Key, data_msg []byte) bool {
-	data_node, err := json.Marshal(node)
+	data_node := &bytes.Buffer{}
+	err := binary.Write(data_node, binary.BigEndian, node)
 	if err != nil {
-		DEBUG(dError, "%v turn json fail\n", node)
+		DEBUG(dError, err.Error())
+		DEBUG(dError, "%v turn bytes fail\n", node)
+		return false
 	}
 
 	f.mu.Lock()
 
 	if f.node_size == 0 {
-		f.node_size = len(data_node)
+		f.node_size = len(data_node.Bytes())
 	}
-	file.Write(data_node)
+	file.Write(data_node.Bytes())
 	file.Write(data_msg)
 
 	f.mu.Unlock()
@@ -152,11 +155,17 @@ func (f *File) ReadFile(file *os.File, offset int64) (Key, []Message, error) {
 		return node, msg, errors.New("Read All file, do not find this index")
 	}
 
-	json.Unmarshal(data_node, &node)
+	buf := &bytes.Buffer{}
+	binary.Write(buf, binary.BigEndian, data_node)
+	binary.Read(buf, binary.BigEndian, &node)
 	data_msg := make([]byte, node.Size)
 	size, err = file.ReadAt(data_msg, offset+int64(f.node_size)+int64(node.Size))
-	if size != NODE_SIZE {
-		return node, msg, errors.New("Read msg size is not NODE_SIZE")
+	offset += int64(f.node_size)
+	size, err = file.ReadAt(data_msg, offset)
+
+	// DEBUG(dLog, "the size is %v, data is %v offset is %v, node.Size is %v\n", size, data_node, offset, node.Size)
+	if size != node.Size {
+		return node, msg, errors.New("read msg size is not NODE_SIZE")
 	}
 	if err == io.EOF { //读到文件末尾
 		return node, msg, errors.New("Read All file, do not find this index")
@@ -185,7 +194,9 @@ func (f *File) FindOffset(file *os.File, index int64) (int64, error) {
 			return index, errors.New("Read All file, do not find this index")
 		}
 
-		json.Unmarshal(data_node, &node)
+		buf := &bytes.Buffer{}
+		binary.Write(buf, binary.BigEndian, data_node)
+		binary.Read(buf, binary.BigEndian, &node)
 		if node.End_index < index {
 			offset += int64(NODE_SIZE + node.Size)
 		} else {
@@ -196,7 +207,7 @@ func (f *File) FindOffset(file *os.File, index int64) (int64, error) {
 	return offset, nil
 }
 
-func (f *File) ReadByte(file *os.File, offset int64) (Key, []byte, error) {
+func (f *File) ReadBytes(file *os.File, offset int64) (Key, []byte, error) {
 	var node Key
 
 	data_node := make([]byte, NODE_SIZE)
@@ -210,14 +221,18 @@ func (f *File) ReadByte(file *os.File, offset int64) (Key, []byte, error) {
 		return node, nil, errors.New("read node size is not NODE_SIZE")
 	}
 	if err == io.EOF { //读到文件末尾
-		return node, nil, errors.New("read All file, do not find this index")
+		DEBUG(dLeader, "read All file, do not find this index")
+		return node, nil, err
 	}
 
-	json.Unmarshal(data_node, &node)
+	buf := &bytes.Buffer{}
+	binary.Write(buf, binary.BigEndian, data_node)
+	binary.Read(buf, binary.BigEndian, &node)
 	data_msg := make([]byte, node.Size)
-	size, err = file.ReadAt(data_msg, offset+int64(f.node_size)+int64(node.Size))
+	offset += +int64(f.node_size)
+	size, err = file.ReadAt(data_msg, offset)
 
-	if size != NODE_SIZE {
+	if size != node.Size {
 		return node, nil, errors.New("read msg size is not NODE_SIZE")
 	}
 	if err == io.EOF { //读到文件末尾

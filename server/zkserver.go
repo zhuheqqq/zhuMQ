@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"hash/crc32"
 	"sort"
+	"strconv"
 	"sync"
 	"zhuMQ/client/clients"
 	"zhuMQ/kitex_gen/api"
@@ -22,6 +25,11 @@ type ZkServer struct {
 	Info_Partitions map[string]zookeeper.PartitionNode
 
 	Brokers map[string]server_operations.Client //连接各个broker
+
+	//每个partition所在的集群   topic+partition to brokers
+	PartToBro map[string][]string
+	// PartStatus  map[string]bool
+	consistent *Consistent
 }
 
 type Info_in struct {
@@ -54,6 +62,10 @@ func (z *ZkServer) make(opt Options) {
 	z.Info_Topics = make(map[string]zookeeper.TopicNode)
 	z.Info_Partitions = make(map[string]zookeeper.PartitionNode)
 	z.Brokers = make(map[string]server_operations.Client)
+	z.PartToBro = make(map[string][]string)
+
+	z.consistent = NewConsistent()
+
 }
 
 // 处理broker信息，如果未连接broker则建立连接
@@ -68,7 +80,25 @@ func (z *ZkServer) HandleBroInfo(bro_name, bro_H_P string) error {
 	z.Brokers[bro_name] = bro_cli
 	z.mu.Unlock()
 
+	//加入consistent中进行负载均衡
+	z.consistent.Add(bro_name, 1)
+
+	//增加动态扩容机制，若有新broker加入应动态进行扩容
+	//既对一些服务进行动态转移----producer服务
+	//对于raft集群将集群停止并开启负载均衡完后将重新启动这个集群
+	//对于fetch机制同上，暂时停止服务后迁移副本broker，负载均衡
+
+	//对consumer服务保持正常状态，继续提供服务
+
 	return nil
+}
+
+func (z *ZkServer) RebalancePtoB() {
+
+}
+
+func (z *ZkServer) Update() {
+
 }
 
 // 获取broker的信息
@@ -285,6 +315,10 @@ func (z *ZkServer) SetPartitionState(info Info_in) Info_out {
 		}
 		if node.Option == -2 { //未创建任何状态, 即该partition未接收过任何信息
 			//负载均衡获得一定数量broker节点,并在这些broker上部署raft集群
+			// raft副本个数暂时默认3个
+
+			Dups, data_brokers = z.GetDupsFromConsist(info)
+
 			for _, dupnode := range Dups {
 				bro_cli, ok := z.Brokers[dupnode.BrokerName]
 				if !ok {
@@ -357,6 +391,12 @@ func (z *ZkServer) SetPartitionState(info Info_in) Info_out {
 		if node.Option == -2 { //未创建任何状态, 即该partition未接收过任何信息
 			//负载均衡获得一定数量broker节点,选择一个leader, 并让其他节点fetch leader信息
 			for _, dupnode := range Dups {
+				//默认副本数为3
+
+				Dups, data_brokers = z.GetDupsFromConsist(info)
+
+				LeaderBroker = z.zk.GetBrokerNode(Dups[0].BrokerName)
+
 				bro_cli, ok := z.Brokers[dupnode.BrokerName]
 				if !ok {
 					DEBUG(dLog, "this partition(%v) leader broker is not connected\n", info.part_name)
@@ -381,6 +421,59 @@ func (z *ZkServer) SetPartitionState(info Info_in) Info_out {
 	return Info_out{
 		Ret: ret,
 	}
+}
+
+func (z *ZkServer) GetDupsFromConsist(info Info_in) (Dups []zookeeper.DuplicateNode, data_brokers []byte) {
+	str := info.topic_name + info.part_name
+	Bro_dup_1 := z.consistent.GetNode(str + "dup1")
+	Bro_dup_2 := z.consistent.GetNode(str + "dup2")
+	Bro_dup_3 := z.consistent.GetNode(str + "dup3")
+	Dups = append(Dups, zookeeper.DuplicateNode{
+		Name:          "dup_1",
+		TopicName:     info.topic_name,
+		PartitionName: info.part_name,
+		BrokerName:    Bro_dup_1,
+		StartOffset:   int64(0),
+		BlockName:     "NowBlock",
+	})
+
+	Dups = append(Dups, zookeeper.DuplicateNode{
+		Name:          "dup_1",
+		TopicName:     info.topic_name,
+		PartitionName: info.part_name,
+		BrokerName:    Bro_dup_2,
+		StartOffset:   int64(0),
+		BlockName:     "NowBlock",
+	})
+
+	Dups = append(Dups, zookeeper.DuplicateNode{
+		Name:          "dup_1",
+		TopicName:     info.topic_name,
+		PartitionName: info.part_name,
+		BrokerName:    Bro_dup_3,
+		StartOffset:   int64(0),
+		BlockName:     "NowBlock",
+	})
+
+	for _, dup := range Dups {
+		err := z.zk.RegisterNode(dup)
+		if err != nil {
+			DEBUG(dError, "the err is %v\n", err.Error())
+		}
+	}
+
+	var brokers BrokerS
+	for _, DupNode := range Dups {
+		BrokerNode := z.zk.GetBrokerNode(DupNode.BrokerName)
+		brokers.Brokers[DupNode.BrokerName] = BrokerNode.HostPort
+	}
+
+	data_brokers, err := json.Marshal(brokers)
+	if err != nil {
+		DEBUG(dError, err.Error())
+	}
+
+	return Dups, data_brokers
 }
 
 func (z *ZkServer) CreateNowBlock(info Info_in) error {
@@ -635,4 +728,122 @@ func (z *ZkServer) GetNewLeader(info Info_in) (Info_out, error) {
 		broker_name:   LeaderBroker.Name,
 		bro_host_port: LeaderBroker.HostPort,
 	}, nil
+}
+
+type ConsistentBro struct {
+	// 排序的hash虚拟节点（环形）
+	hashSortedNodes []uint32
+	// 虚拟节点(broker)对应的实际节点
+	circle map[uint32]string
+	// 已绑定的broker为true
+	nodes map[string]bool
+
+	mu sync.RWMutex
+	//虚拟节点个数
+	vertualNodeCount int
+}
+
+func NewConsistentBro() *Consistent {
+	con := &Consistent{
+		hashSortedNodes:  make([]uint32, 2),
+		circle:           make(map[uint32]string),
+		nodes:            make(map[string]bool),
+		ConH:             make(map[string]bool),
+		FreeNode:         0,
+		mu:               sync.RWMutex{},
+		vertualNodeCount: VERTUAL_10,
+	}
+
+	return con
+}
+
+func (c *ConsistentBro) hashKey(key string) uint32 {
+	return crc32.ChecksumIEEE([]byte(key))
+}
+
+// add consumer name as node
+func (c *ConsistentBro) Add(node string, power int) error {
+	if node == "" {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, ok := c.nodes[node]; ok {
+		// fmt.Println("node already existed")
+		return errors.New("node already existed")
+	}
+	c.nodes[node] = true
+
+	for i := 0; i < c.vertualNodeCount*power; i++ {
+		virtualKey := c.hashKey(node + strconv.Itoa(i))
+		c.circle[virtualKey] = node
+		c.hashSortedNodes = append(c.hashSortedNodes, virtualKey)
+	}
+
+	sort.Slice(c.hashSortedNodes, func(i, j int) bool {
+		return c.hashSortedNodes[i] < c.hashSortedNodes[j]
+	})
+
+	return nil
+}
+
+func (c *ConsistentBro) Reduce(node string) error {
+	if node == "" {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, ok := c.nodes[node]; !ok {
+		// fmt.Println("node already existed")
+		return errors.New("node already delete")
+	}
+	// c.nodes[node] = false
+	delete(c.nodes, node)
+
+	for i := 0; i < c.vertualNodeCount; i++ {
+		virtualKey := c.hashKey(node + strconv.Itoa(i))
+		delete(c.circle, virtualKey)
+		for j := 0; j < len(c.hashSortedNodes); j++ {
+			if c.hashSortedNodes[j] == virtualKey && j != len(c.hashSortedNodes)-1 {
+				c.hashSortedNodes = append(c.hashSortedNodes[:j], c.hashSortedNodes[j+1:]...)
+			} else if j == len(c.hashSortedNodes)-1 {
+				c.hashSortedNodes = c.hashSortedNodes[:j]
+			}
+		}
+	}
+
+	sort.Slice(c.hashSortedNodes, func(i, j int) bool {
+		return c.hashSortedNodes[i] < c.hashSortedNodes[j]
+	})
+
+	return nil
+}
+
+// return consumer name
+func (c *ConsistentBro) GetNode(key string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	hash := c.hashKey(key)
+	i := c.getPosition(hash)
+
+	con := c.circle[c.hashSortedNodes[i]]
+
+	return con
+}
+
+func (c *ConsistentBro) getPosition(hash uint32) int {
+	i := sort.Search(len(c.hashSortedNodes), func(i int) bool { return c.hashSortedNodes[i] >= hash })
+
+	if i < len(c.hashSortedNodes) {
+		if i == len(c.hashSortedNodes)-1 {
+			return 0
+		} else {
+			return i
+		}
+	} else {
+		return len(c.hashSortedNodes) - 1
+	}
 }
