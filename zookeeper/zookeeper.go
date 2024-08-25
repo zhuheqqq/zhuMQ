@@ -322,13 +322,13 @@ func (z *ZK) GetBrokers(topic string) ([]Part, error) {
 					continue
 				}
 				Parts = append(Parts, Part{
-					Topic_name: topic,
-					Part_name:  part,
-					BrokerName: broker.Name,
-					Host_Port:  broker.HostPort,
-					PTP_index:  PTP_index,
-					File_name:  info.FileName,
-					Err:        ret,
+					Topic_name:    topic,
+					Part_name:     part,
+					BrokerName:    broker.Name,
+					BrokHost_Port: broker.BrokHostPort,
+					PTP_index:     PTP_index,
+					File_name:     info.FileName,
+					Err:           ret,
 				})
 				break
 			}
@@ -385,12 +385,12 @@ func (z *ZK) GetBroker(topic, part string, offset int64) (parts []Part, err erro
 				continue
 			}
 			parts = append(parts, Part{
-				Topic_name: topic,
-				Part_name:  part,
-				BrokerName: broker.Name,
-				Host_Port:  broker.HostPort,
-				File_name:  info.FileName,
-				Err:        ret,
+				Topic_name:    topic,
+				Part_name:     part,
+				BrokerName:    broker.Name,
+				BrokHost_Port: broker.BrokHostPort,
+				File_name:     info.FileName,
+				Err:           ret,
 			})
 			break
 		}

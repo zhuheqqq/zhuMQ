@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="95666a81-4d7b-45cf-b668-b1afccadb1fb" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/docs/zhuMQ元数据设计.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/zhuMQ元数据设计.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/设计文档.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/设计文档.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/zookeeper/zookeeper.go" beforeDir="false" afterPath="$PROJECT_DIR$/zookeeper/zookeeper.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,32 +36,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "DefaultGoTemplateProperty": "Go File",
-    "Go Build.go build zhuMQ/test.executor": "Run",
-    "Go Test.TestConsumerNet in zhuMQ/test.executor": "Run",
-    "Go Test.TestProducerNet in zhuMQ/test.executor": "Run",
-    "Go 构建.go build zhuMQ/client.executor": "Run",
-    "Go 构建.go build zhuMQ/test.executor": "Run",
-    "Go 测试.TestConsumer1 in zhuMQ/test.executor": "Run",
-    "Go 测试.TestProducerCreate in zhuMQ/test.executor": "Run",
-    "Go 测试.TestProducerPush in zhuMQ/test.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.go.formatter.settings.were.checked": "true",
-    "RunOnceActivity.go.migrated.go.modules.settings": "true",
-    "RunOnceActivity.go.modules.automatic.dependencies.download": "true",
-    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
-    "git-widget-placeholder": "main",
-    "go.import.settings.migrated": "true",
-    "go.sdk.automatically.set": "true",
-    "last_opened_file_path": "/home/zhuheqin/clone/zhuMQ",
-    "node.js.detected.package.eslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "advanced.settings"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultGoTemplateProperty&quot;: &quot;Go File&quot;,
+    &quot;Go Build.go build zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.TestConsumerNet in zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.TestProducerNet in zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;Go 构建.go build zhuMQ/client.executor&quot;: &quot;Run&quot;,
+    &quot;Go 构建.go build zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;Go 测试.TestConsumer1 in zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;Go 测试.TestProducerCreate in zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;Go 测试.TestProducerPush in zhuMQ/test.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.modules.automatic.dependencies.download&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
+    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/zhuheqin/clone/zhuMQ&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;advanced.settings&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Go 测试.TestConsumer1 in zhuMQ/test">
     <configuration name="go build zhuMQ/client" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="zhuMQ" />
