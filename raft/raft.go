@@ -34,15 +34,15 @@ type Raft struct {
 	topic_name string
 	part_name  string
 
-	mu                    sync.Mutex                // Lock to protect shared access to this peer's state
-	peers                 []*raft_operations.Client // RPC end points of all peers
-	persister             *Persister                // Object to hold this peer's persisted state
-	me                    int                       // this peer's index into peers[]
-	dead                  int32                     // set by Kill()
-	currentTerm           int                       //当前任期
-	leaderId              int
-	votedFor              int
-	cond                  *sync.Cond
+	mu          sync.Mutex                // Lock to protect shared access to this peer's state
+	peers       []*raft_operations.Client // RPC end points of all peers
+	persister   *Persister                // Object to hold this peer's persisted state
+	me          int                       // this peer's index into peers[]
+	dead        int32                     // set by Kill()
+	currentTerm int                       //当前任期
+	leaderId    int
+	votedFor    int
+	//cond                  *sync.Cond
 	state                 int //follower0       candidate1         leader2
 	electionRandomTimeout int
 	electionElapsed       int
@@ -117,10 +117,13 @@ func Make(peers []*raft_operations.Client, me int,
 	rf.leaderId = -1
 	rf.currentTerm = 0
 	rf.electionElapsed = 0
+	rf.mu = sync.Mutex{}
+	rf.topic_name = topic_name
+	rf.part_name = part_name
 	rand.Seed(time.Now().UnixNano())
 	rf.electionRandomTimeout = rand.Intn(200) + 300
 	rf.state = 0
-	rf.cond = sync.NewCond(&rf.mu)
+	//rf.cond = sync.NewCond(&rf.mu)
 	rf.log = []LogNode{}
 	rf.X = 0
 
@@ -347,6 +350,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs) (reply *RequestVoteReply) {
 	//待处理收到请求投票信息后是否更新超时时间
 
 	//所有服务器和接收者的处理流程
+	reply = &RequestVoteReply{}
 	rf.mu.Lock()
 	if rf.currentTerm > args.Term { //候选者任期低于自己
 		reply.VoteGranted = false
@@ -370,6 +374,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs) (reply *RequestVoteReply) {
 				if args.LastLogIndex-rf.X >= logi ||
 					args.LastLogIterm > rf.log[logi].Logterm {
 					rf.state = 0
+					DEBUG(dLog, "S%d args.Term(%v)\n", rf.me, args.Term)
+					DEBUG(dLog, "S%d reply.Term(%v)\n", rf.me, reply.Term)
 					reply.Term = args.Term
 					rf.electionElapsed = 0
 					rand.Seed(time.Now().UnixNano())
@@ -407,6 +413,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs) (reply *RequestVoteReply) {
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs) (reply *AppendEntriesReply) {
 	// go rf.persist()
+	reply = &AppendEntriesReply{}
 	rf.mu.Lock()
 	if len(args.Entries) != 0 {
 		DEBUG(dLeader, "S%d  app <- %d T(%d) cT(%d)\n", rf.me, args.LeaderId, args.Term, rf.currentTerm)
@@ -906,7 +913,7 @@ func (rf *Raft) requestvotes(term int) {
 	truenum := int64(1)
 	peers := len(rf.peers)
 	rf.votedFor = rf.me
-	DEBUG(dVote, "S%d  vote vf(%d) to own\n", rf.me, rf.votedFor)
+	DEBUG(dVote, "S%d  vote vf(%d) to own wg is %v\n", rf.me, rf.votedFor, len(rf.peers)-1)
 	var wg sync.WaitGroup
 
 	wg.Add(len(rf.peers) - 1)
@@ -990,6 +997,7 @@ func (rf *Raft) requestvotes(term int) {
 					DEBUG(dVote, "S%d vote -> %d fail\n", rf.me, it)
 				}
 
+				DEBUG(dLog, "S%d Done it is %v\n", rf.me, it)
 				wg.Done()
 			}(it, term)
 
