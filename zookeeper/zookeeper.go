@@ -37,6 +37,7 @@ func NewZK(info ZKInfo) *ZK {
 }
 
 type BrokerNode struct {
+	Me           int    `json:"me"`
 	Name         string `json:"name"`
 	BrokHostPort string `json:"brokhostPort"`
 	Pnum         int    `json:"pNum"`
