@@ -233,7 +233,8 @@ func (z *ZK) GetPartState(topic_name, part_name string) (PartitionNode, error) {
 	var node PartitionNode
 	path := z.TopicRoot + "/" + topic_name + "/Partitions/" + part_name
 	ok, _, err := z.conn.Exists(path)
-	if !ok {
+	logger.DEBUG(logger.DLog, "create broker state %v ok %v\n", path, ok)
+	if ok {
 		return node, err
 	}
 	data, _, _ := z.conn.Get(path)

@@ -105,7 +105,7 @@ func (z *ZkServer) Update() {
 // 获取broker的信息
 func (z *ZkServer) ProGetBroker(info Info_in) Info_out {
 	//查询zookeeper，获得broker的host_port和name，若未连接则建立连接
-	broker, block, err := z.zk.GetPartNowBrokerNode(info.topic_name, info.part_name)
+	broker, block, _, err := z.zk.GetPartNowBrokerNode(info.topic_name, info.part_name)
 	if err != nil {
 		logger.DEBUG(logger.DError, err.Error())
 	}
@@ -334,7 +334,7 @@ func (z *ZkServer) SetPartitionState(info Info_in) Info_out {
 	}
 
 	//获取该partition
-	LeaderBroker, NowBlock, err := z.zk.GetPartNowBrokerNode(info.topic_name, info.part_name)
+	LeaderBroker, NowBlock, _, err := z.zk.GetPartNowBrokerNode(info.topic_name, info.part_name)
 	if err != nil {
 		logger.DEBUG(logger.DError, err.Error())
 		return Info_out{

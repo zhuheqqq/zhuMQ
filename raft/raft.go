@@ -14,7 +14,11 @@ import (
 
 type ApplyMsg struct {
 	CommandValid bool
-	Command      interface{}
+	TopicName    string
+	PartName     string
+	BeLeader     bool
+	Leader       int
+	Command      Op
 	CommandIndex int
 
 	// For SnapShot:
@@ -27,7 +31,9 @@ type ApplyMsg struct {
 type LogNode struct {
 	LogIndex int
 	Logterm  int
-	Log      interface{}
+	BeLeader bool
+	Leader   int
+	Log      Op
 }
 
 type Raft struct {
@@ -99,7 +105,7 @@ type SnapShotArgs struct {
 	LeaderId          int
 	LastIncludedIndex int
 	LastIncludedTerm  int
-	Log               interface{}
+	Log               Op
 	Snapshot          []byte
 }
 
@@ -197,6 +203,13 @@ func (rf *Raft) Commited(startindex int, applyCh chan ApplyMsg) {
 					CommandValid: true,
 					CommandIndex: it.LogIndex,
 					Command:      it.Log,
+					BeLeader:     it.BeLeader,
+				}
+				if node.BeLeader {
+					node.TopicName = rf.topic_name
+					node.PartName = rf.part_name
+					node.Leader = it.Leader
+					DEBUG(dLeader, "S%d apply beleader\n", rf.me)
 				}
 				DEBUG(dLog, "S%d lastapp lognode = %v\n", rf.me, node)
 				rf.mu.Lock()
@@ -211,6 +224,7 @@ func (rf *Raft) Commited(startindex int, applyCh chan ApplyMsg) {
 
 		time.Sleep(time.Millisecond * 20)
 	}
+	DEBUG(dError, "S%d the commit be killed\n", rf.me)
 }
 
 // return currentTerm and whether this server
@@ -658,7 +672,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs) (*RequestVote
 	}, true
 }
 
-func (rf *Raft) Start(command interface{}) (int, int, bool) {
+func (rf *Raft) Start(command Op, beleader bool, leader int) (int, int, bool) {
 	index := -1
 	term := -1
 	isLeader := false
@@ -675,6 +689,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 				Logterm:  rf.currentTerm,
 				Log:      command,
 				LogIndex: len(rf.log) + rf.X,
+				BeLeader: beleader,
+				Leader:   leader,
 			}
 			rf.log = append(rf.log, com)
 			rf.matchIndex[rf.me]++
@@ -968,12 +984,13 @@ func (rf *Raft) requestvotes(term int) {
 								}
 							}
 
+							//成为Leader将修改zookeeper上的信息
 							go rf.Start(Op{
 								Cli_index: "Leader",
 								Topic:     rf.topic_name,
 								Tpart:     rf.topic_name + rf.part_name,
 								Part:      rf.part_name,
-							})
+							}, true, rf.me)
 
 							go rf.appendentries(rf.currentTerm)
 							DEBUG(dLeader, "S%d  be Leader B\n", rf.me)
@@ -1054,8 +1071,6 @@ type Op struct {
 	Part      string
 	Num       int
 	// KVS       map[string]string     //我们将返回的start直接交给partition，写入文件中
-	CSM map[string]int64
-	CDM map[string]int64
 
 	Msg  []byte
 	Size int8
