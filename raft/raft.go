@@ -986,10 +986,10 @@ func (rf *Raft) requestvotes(term int) {
 
 							//成为Leader将修改zookeeper上的信息
 							go rf.Start(Op{
-								Cli_index: "Leader",
-								Topic:     rf.topic_name,
-								Tpart:     rf.topic_name + rf.part_name,
-								Part:      rf.part_name,
+								Cli_name: "Leader",
+								Topic:    rf.topic_name,
+								Tpart:    rf.topic_name + rf.part_name,
+								Part:     rf.part_name,
 							}, true, rf.me)
 
 							go rf.appendentries(rf.currentTerm)
