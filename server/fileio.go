@@ -25,6 +25,8 @@ func NewFile(path_name string) (file *File, fd *os.File, Err string, err error) 
 			Err = "CreatFileFail"
 			logger.DEBUG(logger.DError, err.Error())
 			return nil, nil, Err, err
+		} else {
+			logger.DEBUG(logger.DLog, "not find file(%v), create a file\n", path_name)
 		}
 	} else {
 		fd, err = os.OpenFile(path_name, os.O_APPEND|os.O_RDWR, os.ModeAppend|os.ModePerm)
@@ -32,6 +34,8 @@ func NewFile(path_name string) (file *File, fd *os.File, Err string, err error) 
 			logger.DEBUG(logger.DError, err.Error())
 			Err = "OpenFile"
 			return nil, nil, Err, err
+		} else {
+			logger.DEBUG(logger.DLog, "find file(%v), open this file\n", path_name)
 		}
 	}
 
@@ -107,10 +111,30 @@ func (f *File) GetFirstIndex(file *os.File) int64 {
 }
 
 func (f *File) GetIndex(file *os.File) int64 {
+	var node Key
+	var index int64
+	index = -1
+	data_node := make([]byte, NODE_SIZE)
 	f.mu.RLock()
+	defer f.mu.RUnlock()
 
-	f.mu.RUnlock()
-	return 0
+	for {
+		_, err := file.ReadAt(data_node, 0)
+
+		if err == io.EOF {
+			//读到文件末尾
+			logger.DEBUG(logger.DLeader, "read All file, do not find this index\n")
+			if index == 0 {
+				json.Unmarshal(data_node, &node)
+				index = node.End_index
+			} else {
+				index = 0
+			}
+			return index
+		} else {
+			index = 0
+		}
+	}
 }
 
 func (f *File) WriteFile(file *os.File, node Key, data_msg []byte) bool {

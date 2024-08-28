@@ -1062,7 +1062,7 @@ func (rf *Raft) ticker() {
 }
 
 type Op struct {
-	Cli_index string //client的唯一标识
+	Cli_name  string //client的唯一标识
 	Cmd_index int64  //操作id号
 	Ser_index int64  //Server的id
 	Operate   string //这里的操作只有append

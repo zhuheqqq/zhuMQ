@@ -28,6 +28,7 @@ const (
 
 type Topic struct {
 	rmu     sync.RWMutex
+	Broker  string
 	Files   map[string]*File
 	Parts   map[string]*Partition    //储存该主题下的所有分区
 	subList map[string]*SubScription //存储该主题所有订阅
@@ -35,16 +36,17 @@ type Topic struct {
 }
 
 // 创建新topic,初始化分区和订阅对象
-func NewTopic(topic_name string) *Topic {
+func NewTopic(broker_name, topic_name string) *Topic {
 	topic := &Topic{
 		rmu:     sync.RWMutex{},
+		Broker:  broker_name,
 		Name:    topic_name,
 		Files:   make(map[string]*File),
 		Parts:   make(map[string]*Partition),
 		subList: make(map[string]*SubScription),
 	}
 	str, _ := os.Getwd()
-	str += "/" + Name + "/" + topic_name
+	str += "/" + broker_name + "/" + topic_name
 	CreateList(str)
 
 	return topic
@@ -54,13 +56,13 @@ func (t *Topic) PrepareAcceptHandle(in info) (ret string, err error) {
 	t.rmu.Lock()
 	partition, ok := t.Parts[in.part_name]
 	if !ok {
-		partition = NewPartition(t.Name, in.part_name)
+		partition = NewPartition(t.Broker, t.Name, in.part_name)
 		t.Parts[in.part_name] = partition
 	}
 
 	//设置partition中的file和fd，start_index等信息
 	str, _ := os.Getwd()
-	str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	str += "/" + t.Broker + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
 
 	file, fd, Err, err := NewFile(str)
 	if err != nil {
@@ -93,7 +95,7 @@ func (t *Topic) CloseAcceptPart(in info) (start, end int64, ret string, err erro
 		logger.DEBUG(logger.DError, err.Error())
 	} else {
 		str, _ := os.Getwd()
-		str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/"
+		str += "/" + t.Broker + "/" + in.topic_name + "/" + in.part_name + "/"
 		t.rmu.Lock()
 		t.Files[str+in.new_name] = t.Files[str+in.file_name]
 		delete(t.Files, str+in.file_name)
@@ -107,7 +109,7 @@ func (p *Partition) CloseAcceptMessage(in info) (start, end int64, ret string, e
 	defer p.mu.Unlock()
 	if p.state == ALIVE {
 		str, _ := os.Getwd()
-		str += "/" + Name + "/" + in.topic_name + "/" + in.part_name
+		str += "/" + p.Broker + "/" + in.topic_name + "/" + in.part_name
 		p.file.Update(str, in.new_name) //修改本地文件名
 		p.file_name = in.new_name
 		p.state = DOWN
@@ -129,13 +131,13 @@ func (t *Topic) PrepareSendHandle(in info, zkclient *zkserver_operations.Client)
 	//检查或创建partition
 	partition, ok := t.Parts[in.part_name]
 	if !ok {
-		partition = NewPartition(t.Name, in.part_name)
+		partition = NewPartition(t.Broker, t.Name, in.part_name)
 		t.Parts[in.part_name] = partition
 	}
 
 	//检查文件是否存在, 若存在为获得File则创建File,若没有则返回错误.
 	str, _ := os.Getwd()
-	str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	str += "/" + t.Broker + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
 	file, ok := t.Files[str]
 	if !ok {
 		file, fd, Err, err := CheckFile(str)
@@ -184,7 +186,7 @@ func (t *Topic) HandleParttitions(Partitions map[string]PartNodeInfo) {
 	for part_name := range Partitions {
 		_, ok := t.Parts[part_name]
 		if !ok {
-			part := NewPartition(t.Name, part_name)
+			part := NewPartition(t.Broker, t.Name, part_name)
 			// part.HandleBlocks(topic_name, part_name, partition.Blocks)
 
 			t.Parts[part_name] = part
@@ -204,7 +206,7 @@ func (t *Topic) GetParts() map[string]*Partition {
 func (t *Topic) GetFile(in info) *File {
 	t.rmu.Lock()
 	str, _ := os.Getwd()
-	str += "/" + Name + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
+	str += "/" + t.Broker + "/" + in.topic_name + "/" + in.part_name + "/" + in.file_name
 	File, ok := t.Files[str]
 	if !ok {
 		file, fd, Err, err := NewFile(str)
@@ -227,7 +229,7 @@ func (t *Topic) GetConfig(sub string) *Config {
 }
 
 func (t *Topic) AddPartition(part_name string) {
-	part := NewPartition(t.Name, part_name)
+	part := NewPartition(t.Broker, t.Name, part_name)
 	t.Parts[part_name] = part
 }
 
@@ -235,7 +237,7 @@ func (t *Topic) addMessage(in info) error {
 	part, ok := t.Parts[in.part_name]
 	if !ok {
 		logger.DEBUG(logger.DError, "not find this part in add message\n")
-		part := NewPartition(in.topic_name, in.part_name) //需要向sub中和config中加入一个partition
+		part := NewPartition(t.Broker, in.topic_name, in.part_name) //需要向sub中和config中加入一个partition
 		t.Parts[in.part_name] = part
 	}
 
@@ -323,6 +325,7 @@ func (t *Topic) RecoverRelease(sub_name, cli_name string) {
 
 type Partition struct {
 	mu          sync.RWMutex
+	Broker      string
 	file_name   string
 	fd          *os.File
 	key         string
@@ -334,16 +337,18 @@ type Partition struct {
 }
 
 // 创建新的分区对象
-func NewPartition(topic_name, part_name string) *Partition {
+func NewPartition(broker_name, topic_name, part_name string) *Partition {
 	part := &Partition{
-		mu:    sync.RWMutex{},
-		key:   part_name,
-		state: CLOSE,
+		mu:     sync.RWMutex{},
+		key:    part_name,
+		Broker: broker_name,
+		state:  CLOSE,
+		index:  0,
 		//queue: make([]Message, 50),
 	}
 
 	str, _ := os.Getwd()
-	str += "/" + Name + "/" + topic_name + "/" + part_name
+	str += "/" + broker_name + "/" + topic_name + "/" + part_name
 
 	return part
 }
@@ -363,7 +368,7 @@ func (p *Partition) StartGetMessage(file *File, fd *os.File, in info) string {
 		p.fd = fd
 		p.file_name = in.file_name
 		p.index = file.GetIndex(fd)
-		p.start_index = p.index + 1
+		p.start_index = p.index
 		ret = OK
 	}
 	return ret
@@ -393,7 +398,7 @@ func (p *Partition) AddMessage(in info) (ret string, err error) {
 		Msg:        in.message,
 	}
 
-	//DEBUG(dLog, "part_name %v add message index is %v\n", p.key, p.index)
+	logger.DEBUG(logger.DLog, "part_name(%v) add message %v index is %v size is %v\n", p.key, msg, p.index, p.index-p.start_index)
 
 	p.queue = append(p.queue, msg) // 将新创建的消息对象添加到队列中
 
@@ -417,6 +422,8 @@ func (p *Partition) AddMessage(in info) (ret string, err error) {
 
 		if !p.file.WriteFile(p.fd, node, data_msg) {
 			logger.DEBUG(logger.DError, "write to %v faile\n", p.file_name)
+		} else {
+			logger.DEBUG(logger.DLog, "S%d write to %v success msgs %v\n", in.me, p.file_name, msg)
 		}
 		p.start_index += VERTUAL_10 + 1
 		p.queue = p.queue[VERTUAL_10:]

@@ -17,10 +17,6 @@ import (
 	"zhuMQ/zookeeper"
 )
 
-var (
-	name string
-)
-
 const (
 	NODE_SIZE = 24
 )
@@ -70,6 +66,7 @@ type info struct {
 	offset     int64
 	size       int8
 	ack        int8
+	Cmdindex   int8
 
 	producer string
 	consumer string
@@ -104,10 +101,8 @@ func (s *Server) make(opt Options, opt_cli []server.Option) {
 	s.brokers_fetch = make(map[string]*server_operations.Client)
 	s.aplych = make(chan info)
 
-	name = GetIpport()
 	s.CheckList()
 	s.Name = opt.Name
-	Name = opt.Name
 	s.me = opt.Me
 
 	//本地创建parts——raft，为raft同步做准备
@@ -165,10 +160,11 @@ func (s *Server) GetApplych(applych chan info) {
 			topic, ok := s.topics[msg.topic_name]
 			s.mu.RUnlock()
 
-			logger.DEBUG(logger.DLog, "the message from applych is %v\n", msg)
+			logger.DEBUG(logger.DLog, "S%d the message from applych is %v\n", s.me, msg)
 			if !ok {
 				logger.DEBUG(logger.DError, "topic(%v) is not in this broker\n", msg.topic_name)
 			} else {
+				msg.me = s.me
 				topic.addMessage(msg) //信息同步
 			}
 		}
@@ -222,7 +218,7 @@ func (s *Server) HandleTopics(Topics map[string]TopNodeInfo) {
 	for topic_name, topic := range Topics {
 		_, ok := s.topics[topic_name]
 		if !ok {
-			top := NewTopic(topic_name)
+			top := NewTopic(s.Name, topic_name)
 			top.HandleParttitions(topic.Partitions)
 			s.topics[topic_name] = top
 		} else {
@@ -269,7 +265,7 @@ func (s *Server) StartGet(in info) (err error) {
 // 检查并创建文件或目录
 func (s *Server) CheckList() {
 	str, _ := os.Getwd()
-	str += "/" + Name
+	str += "/" + s.Name
 	ret := CheckFileOrList(str)
 	if !ret {
 		CreateList(str)
@@ -304,7 +300,7 @@ func (s *Server) PrepareAcceptHandle(in info) (ret string, err error) {
 	s.mu.Lock()
 	topic, ok := s.topics[in.topic_name]
 	if !ok {
-		topic = NewTopic(in.topic_name)
+		topic = NewTopic(s.Name, in.topic_name)
 		s.topics[in.topic_name] = topic
 	}
 	s.mu.Unlock()
@@ -337,7 +333,7 @@ func (s *Server) PrepareSendHandle(in info) (ret string, err error) {
 	s.mu.Lock()
 	topic, ok := s.topics[in.topic_name]
 	if !ok {
-		topic = NewTopic(in.topic_name)
+		topic = NewTopic(s.Name, in.topic_name)
 		s.topics[in.topic_name] = topic
 	}
 	s.mu.Unlock()
@@ -639,7 +635,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 
 		go func() {
 
-			Partition := NewPartition(in.topic_name, in.part_name)
+			Partition := NewPartition(s.Name, in.topic_name, in.part_name)
 			Partition.StartGetMessage(File, fd, in)
 			ice := 0
 

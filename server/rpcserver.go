@@ -88,6 +88,7 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 		message:    req.Message,
 		size:       req.Size,
 		ack:        req.Ack,
+		cmdindex:   req.Cmdindex,
 	})
 	if err != nil {
 		logger.DEBUG(logger.DError, err.Error())
