@@ -11,11 +11,12 @@ import (
 )
 
 type Producer struct {
-	Cli            server_operations.Client
-	rmu            sync.RWMutex
-	Name           string
-	Topic_Partions map[string]server_operations.Client //表示该Topic的分片是否是这个producer负责
-	ZkBroker       zkserver_operations.Client          //zookeeper客户端，用于获取分片的broker信息
+	Cli             server_operations.Client
+	rmu             sync.RWMutex
+	Name            string
+	Topic_Partions  map[string]server_operations.Client //表示该Topic的分片是否是这个producer负责
+	ZkBroker        zkserver_operations.Client          //zookeeper客户端，用于获取分片的broker信息
+	Top_Part_indexs map[string]int64
 }
 
 type Message struct {
@@ -38,15 +39,19 @@ func (p *Producer) SetPartitionState(topic_name, part_name string, option, dupnu
 	return nil
 }
 
-func (p *Producer) Push(msg Message) error {
-	index := msg.Topic_name + msg.Part_name //组合topic_name和part_name作为键
-
+func (p *Producer) Push(msg Message, ack int) error {
+	str := msg.Topic_name + msg.Part_name
+	var ok2 bool
+	var index int64
 	p.rmu.RLock()
-	cli, ok := p.Topic_Partions[index]
+	cli, ok1 := p.Topic_Partions[str]
+	if ack == -1 { //raft, 获取index
+		index, ok2 = p.Top_Part_indexs[str]
+	}
 	zk := p.ZkBroker
 	p.rmu.RUnlock()
 
-	if !ok {
+	if !ok1 {
 		resp, err := zk.ProGetBroker(context.Background(), &api.ProGetBrokRequest{
 			TopicName: msg.Topic_name,
 			PartName:  msg.Part_name,
@@ -63,24 +68,39 @@ func (p *Producer) Push(msg Message) error {
 		}
 
 		p.rmu.Lock()
-		p.Topic_Partions[index] = cli
+		p.Topic_Partions[str] = cli
 		p.rmu.Unlock()
 	}
 
+	if ack == -1 {
+		if !ok2 {
+			p.rmu.Lock()
+			p.Top_Part_indexs[str] = 0
+			p.rmu.Unlock()
+		}
+	}
+
+	//若partition所在的broker发生改变，将返回信息，重新请求zkserver
 	resp, err := cli.Push(context.Background(), &api.PushRequest{
 		Producer: p.Name,
 		Topic:    msg.Topic_name,
 		Key:      msg.Part_name,
 		Message:  msg.Msg,
+		Ack:      int8(ack),
+		Cmdindex: index,
 	})
 	if err == nil && resp.Ret {
+		p.rmu.Lock()
+		p.Top_Part_indexs[str] = index + 1
+		p.rmu.Unlock()
+
 		return nil
 	} else if resp.Err == "partition remove" {
 		p.rmu.Lock()
-		delete(p.Topic_Partions, index)
+		delete(p.Topic_Partions, str)
 		p.rmu.Unlock()
 
-		return p.Push(msg) //重新发送该信息
+		return p.Push(msg, ack) //重新发送该信息
 
 	} else {
 		return errors.New("err != " + err.Error() + "or resp.Ret == false")
@@ -115,9 +135,10 @@ func (p *Producer) CreatePart(topic_name, part_name string) error {
 
 func NewProducer(zkbroker string, name string) (*Producer, error) {
 	P := Producer{
-		rmu:            sync.RWMutex{},
-		Name:           name,
-		Topic_Partions: make(map[string]server_operations.Client),
+		rmu:             sync.RWMutex{},
+		Name:            name,
+		Topic_Partions:  make(map[string]server_operations.Client),
+		Top_Part_indexs: make(map[string]int64),
 	}
 	var err error
 	P.ZkBroker, err = zkserver_operations.NewClient(P.Name, client.WithHostPorts(zkbroker))
