@@ -13,6 +13,7 @@ import (
 	ser "zhuMQ/kitex_gen/api/client_operations"
 	"zhuMQ/kitex_gen/api/server_operations"
 	"zhuMQ/kitex_gen/api/zkserver_operations"
+	"zhuMQ/logger"
 )
 
 type Consumer struct {
@@ -117,7 +118,7 @@ func (c *Consumer) SendInfo(port string, cli *server_operations.Client) error {
 	return err
 }
 
-func (c *Consumer) StartGet(info Info) (parts []PartKey, ret string, err error) {
+func (c *Consumer) StartGet(info Info) (partkeys []PartKey, ret string, err error) {
 	resp, err := c.zkBroker.ConStartGetBroker(context.Background(), &api.ConStartGetBrokRequest{
 		CliName:   c.Name,
 		TopicName: info.Topic,
@@ -133,16 +134,16 @@ func (c *Consumer) StartGet(info Info) (parts []PartKey, ret string, err error) 
 	// broks := make([]BrokerInfo, resp.Size)
 	// json.Unmarshal(resp.Broks, &broks)
 
-	parts = make([]PartKey, resp.Size)
+	var parts Parts
 	err = json.Unmarshal(resp.Parts, &parts)
 	if err != nil {
 		return nil, "", err
 	}
 
 	if info.Option == 1 || info.Option == 3 { //pub
-		ret, err = c.StartGetToBroker(parts, info)
+		ret, err = c.StartGetToBroker(parts.PartKeys, info)
 	}
-	return parts, ret, err
+	return parts.PartKeys, ret, err
 }
 
 func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) (ret string, err error) {
@@ -171,24 +172,43 @@ func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) (ret string, err
 				return ret, err
 			}
 			if info.Option == 1 { //ptp
-				c.Brokers[part.Broker_name] = bro_cli
+				c.Brokers[part.Broker_name] = &bro_cli
 
 				bro_cli.StarttoGet(context.Background(), rep)
 			}
 		}
 		//发送info
-		c.SendInfo(c.port, &bro_cli)
+		err = c.SendInfo(c.port, bro_cli)
+		if err != nil {
+			logger.DEBUG(logger.DError, err.Error())
+			return ret, err
+		}
 
 		if info.Option == 3 { //psb
-			bro_cli.StarttoGet(context.Background(), rep)
+			(*bro_cli).StarttoGet(context.Background(), rep)
 		}
 	}
 	return ret, nil
 }
 
+func (c *Consumer) GetCli(part PartKey) (cli *server_operations.Client, err error) {
+	cli, ok := c.Brokers[part.Broker_name]
+	if !ok {
+		bro_cli, err := server_operations.NewClient(c.Name, client.WithHostPorts(part.Broker_H_P))
+		if err != nil {
+			return nil, err
+		}
+		cli = &bro_cli
+		c.Brokers[part.Broker_name] = cli
+		logger.DEBUG(logger.DLog, "get cli(%v) fail, new client\n", part.Broker_name)
+	}
+
+	return cli, nil
+}
+
 // 向broker索要信息
 func (c *Consumer) Pull(info Info) (int64, int64, []Msg, error) {
-	resp, err := info.Cli.Pull(context.Background(), &api.PullRequest{
+	resp, err := (*info.Cli).Pull(context.Background(), &api.PullRequest{
 		Consumer: c.Name,
 		Topic:    info.Topic,
 		Key:      info.Part,
@@ -223,7 +243,7 @@ type Info struct {
 	Part   string
 	Option int8
 	Bufs   map[int64]*api.PubRequest
-	Cli    server_operations.Client
+	Cli    *server_operations.Client
 }
 
 func NewInfo(offset int64, topic, part string) Info {

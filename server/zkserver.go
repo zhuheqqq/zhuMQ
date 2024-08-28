@@ -94,14 +94,6 @@ func (z *ZkServer) HandleBroInfo(bro_name, bro_H_P string) error {
 	return nil
 }
 
-func (z *ZkServer) RebalancePtoB() {
-
-}
-
-func (z *ZkServer) Update() {
-
-}
-
 // 获取broker的信息
 func (z *ZkServer) ProGetBroker(info Info_in) Info_out {
 	//查询zookeeper，获得broker的host_port和name，若未连接则建立连接
@@ -603,9 +595,9 @@ func (z *ZkServer) HandStartGetBroker(info Info_in) (rets []byte, size int, err 
 	})
 
 	//获取该topic或partition的broker,并保证在线,若全部离线则Err
-	if info.option == 1 { //ptp_push
+	if info.option == PTP_PULL || info.option == PTP_PUSH { //ptp_push
 		Parts, err = z.zk.GetBrokers(info.topic_name)
-	} else if info.option == 3 { //psb_push
+	} else if info.option == PSB_PULL || info.option == PSB_PUSH { //psb_push
 		Parts, err = z.zk.GetBroker(info.topic_name, info.part_name, info.index)
 	}
 	if err != nil {
@@ -658,9 +650,9 @@ func (z *ZkServer) SendPreoare(Parts []zookeeper.Part, info Info_in) (partkeys [
 			FileName:  part.File_name,
 			Option:    info.option,
 		}
-		if rep.Option == 1 { //ptp
+		if rep.Option == PTP_PULL || rep.Option == PTP_PUSH { //ptp
 			rep.Offset = part.PTP_index
-		} else if rep.Option == 3 { //psb
+		} else if rep.Option == PSB_PULL || rep.Option == PSB_PUSH { //psb
 			rep.Offset = info.index
 		}
 		resp, err := bro_cli.PrepareSend(context.Background(), rep)
@@ -689,7 +681,7 @@ func (z *ZkServer) CloseAcceptPartition(topicname, partname, brokername string, 
 		logger.DEBUG(logger.DError, err.Error())
 		return err.Error()
 	}
-	NewBlockName := "Block_" + string(index)
+	NewBlockName := "Block_" + strconv.Itoa(int(index))
 	NewFileName := NewBlockName + ".txt"
 
 	z.mu.RLock()
@@ -759,9 +751,9 @@ func (z *ZkServer) CloseAcceptPartition(topicname, partname, brokername string, 
 	return NewFileName
 }
 
-func (z *ZkServer) UpdateOffset(info Info_in) error {
+func (z *ZkServer) UpdatePTPOffset(info Info_in) error {
 	str := z.zk.TopicRoot + "/" + info.topic_name + "/" + "Partitions" + "/" + info.part_name
-	node, err := z.zk.GetPartitionNode(str)
+	_, err := z.zk.GetPartitionNode(str)
 	if err != nil {
 		logger.DEBUG(logger.DError, err.Error())
 		return err
@@ -772,6 +764,37 @@ func (z *ZkServer) UpdateOffset(info Info_in) error {
 		PTPoffset: info.index,
 	})
 	return err
+}
+
+func (z *ZkServer) UpdateDupNode(info Info_in) error {
+	str := z.zk.TopicRoot + "/" + info.topic_name + "/" + "Partitions" + "/" + info.part_name + "/" + info.blockname
+	// if info.leader {
+	BlockNode, err := z.zk.GetBlockNode(str)
+	if err != nil {
+		logger.DEBUG(logger.DError, err.Error())
+		return err
+	}
+	if info.index > BlockNode.EndOffset {
+		BlockNode.EndOffset = info.index
+		err = z.zk.RegisterNode(BlockNode)
+		if err != nil {
+			logger.DEBUG(logger.DError, err.Error())
+			return err
+		}
+	}
+	// }
+	DupNode, err := z.zk.GetDuplicateNode(str + "/" + info.cli_name)
+	if err != nil {
+		logger.DEBUG(logger.DError, err.Error())
+		return err
+	}
+	DupNode.EndOffset = info.index
+	err = z.zk.RegisterNode(DupNode)
+	if err != nil {
+		logger.DEBUG(logger.DError, err.Error())
+		return err
+	}
+	return nil
 }
 
 func GetPartKeys(Parts []zookeeper.Part) (partkeys []clients.PartKey) {

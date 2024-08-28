@@ -309,13 +309,26 @@ struct CreatePartResponse {
     2:  string  err
 }
 
-struct UpdateOffsetRequest{
+struct UpdatePTPOffsetRequest{
     1: string   topic
     2: string   part
     3: i64      offset
 }
 
-struct UpdateOffsetResponse{
+struct UpdatePTPOffsetResponse{
+    1: bool     ret
+}
+
+struct UpdateDupRequest{
+    1: string   topic
+    2: string   part
+    3: string   BrokerName
+    4: string   BlockName
+    5: i64      EndIndex
+    6: bool     leader
+}
+
+struct UpdateDupResponse{
     1: bool     ret
 }
 
@@ -361,7 +374,7 @@ service ZkServer_Operations {
    SetPartitionStateResponse SetPartitionState(1: SetPartitionStateRequest req)
     //broker
    BroInfoResponse BroInfo(1: BroInfoRequest req)
-   UpdateOffsetResponse UpdateOffset(1: UpdateOffsetRequest req)
+
    ProGetBrokResponse ProGetBroker(1:  ProGetBrokRequest req)//broker 发送info让zkserver连接broker
    ConStartGetBrokResponse ConStartGetBroker(1:  ConStartGetBrokRequest req)
 
@@ -372,5 +385,9 @@ service ZkServer_Operations {
    BecomeLeaderResponse    BecomeLeader(   1: BecomeLeaderRequest  req)
        //broker获取新的Leader
    GetNewLeaderResponse    GetNewLeader(   1: GetNewLeaderRequest  req)
+
+   //broker更新topic-partition的offset
+   UpdatePTPOffsetResponse    UpdatePTPOffset(   1: UpdatePTPOffsetRequest  req)
+   UpdateDupResponse       UpdateDup(1: UpdateDupRequest req)
 
 }

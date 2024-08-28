@@ -29,7 +29,7 @@ func main() {
 				Part_name:  "zhuheqqq",
 				Msg:        []byte("18788888888"),
 			}
-			err := producer.Push(msg)
+			err := producer.Push(msg, -1)
 			if err != nil {
 				fmt.Println(err)
 			}
