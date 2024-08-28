@@ -23,7 +23,6 @@ func DeleteAllFiles(path string, t *testing.T) {
 
 func TestPartitionAccept1(t *testing.T) {
 	fmt.Println("Test: Partition accept message use addMessage")
-	server.Name = "Broker"
 	topic_name := "phone_number"
 	part_name := "xian"
 	filename := "NowBlock.txt"
@@ -36,7 +35,7 @@ func TestPartitionAccept1(t *testing.T) {
 	str, _ := os.Getwd()
 	DeleteAllFiles(str+"/"+"Broker"+"/"+topic_name+"/"+part_name+"/", t)
 
-	Partition := server.NewPartition(topic_name, part_name)
+	Partition := server.NewPartition("Broker", topic_name, part_name)
 	path := str + "/" + "Broker" + "/" + topic_name + "/" + part_name + "/" + filename
 	file, fd, Err, err := server.NewFile(path)
 
@@ -85,7 +84,6 @@ func TestPartitionAccept1(t *testing.T) {
 
 func TestPartitionCloseAccept(t *testing.T) {
 	fmt.Println("Test: Partition accept message use addMessage")
-	server.Name = "Broker"
 	topic_name := "phone_number"
 	part_name := "xian"
 	filename := "NowBlock.txt"
@@ -99,7 +97,7 @@ func TestPartitionCloseAccept(t *testing.T) {
 	str, _ := os.Getwd()
 	DeleteAllFiles(str+"/"+"Broker"+"/"+topic_name+"/"+part_name+"/", t)
 
-	Partition := server.NewPartition(topic_name, part_name)
+	Partition := server.NewPartition("Broker", topic_name, part_name)
 	path := str + "/" + "Broker" + "/" + topic_name + "/" + part_name + "/" + filename
 	file, fd, Err, err := server.NewFile(path)
 
