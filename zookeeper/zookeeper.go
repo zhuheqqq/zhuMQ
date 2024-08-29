@@ -26,7 +26,7 @@ type ZKInfo struct {
 func NewZK(info ZKInfo) *ZK {
 	conn, _, err := zk.Connect(info.HostPorts, time.Duration(info.Timeout)*time.Second)
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 	return &ZK{
 		conn:       conn,
@@ -272,7 +272,7 @@ func (z *ZK) GetBrokers(topic string) ([]Part, error) {
 	path := z.TopicRoot + "/" + topic + "/" + "Partition"
 	ok, _, err := z.conn.Exists(path)
 	if !ok || err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return nil, err
 	}
 	var Parts []Part
@@ -347,7 +347,7 @@ func (z *ZK) GetBroker(topic, part string, offset int64) (parts []Part, err erro
 	part_path := z.TopicRoot + "/" + topic + "/Partitions/" + part
 	ok, _, err := z.conn.Exists(part_path)
 	if !ok || err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return nil, err
 	}
 
@@ -434,7 +434,7 @@ func (z *ZK) GetPartNowBrokerNode(topic_name, part_name string) (BrokerNode, Blo
 			return BrokerNode{}, NowBlock, 1, err
 		}
 		logger.DEBUG(logger.DLog, "the Leader Broker is %v\n", NowBlock.LeaderBroker)
-		ret := z.CheckBroker(z.BrokerRoot + "/" + Broker.Name)
+		ret := z.CheckBroker(Broker.Name)
 		if ret {
 			return Broker, NowBlock, 2, nil
 		} else {

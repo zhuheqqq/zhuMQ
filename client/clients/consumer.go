@@ -180,7 +180,7 @@ func (c *Consumer) StartGetToBroker(parts []PartKey, info Info) (ret string, err
 		//发送info
 		err = c.SendInfo(c.port, bro_cli)
 		if err != nil {
-			logger.DEBUG(logger.DError, err.Error())
+			logger.DEBUG(logger.DError, "%v\n", err.Error())
 			return ret, err
 		}
 
@@ -213,6 +213,8 @@ func (c *Consumer) Pull(info Info) (int64, int64, []Msg, error) {
 		Topic:    info.Topic,
 		Key:      info.Part,
 		Offset:   info.Offset,
+		Size:     info.Size,
+		Option:   info.Option,
 	})
 	if err != nil {
 		return -1, -1, nil, err

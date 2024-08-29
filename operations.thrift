@@ -21,8 +21,9 @@ struct PullRequest {
     1: string   consumer
     2: string   topic
     3: string   key
-    4: i64    offset
-    5: i8     size
+    4: i64      offset
+    5: i8       size
+    6: i8       option
 }
 
 struct PullResponse {

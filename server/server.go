@@ -125,18 +125,18 @@ func (s *Server) make(opt Options, opt_cli []server.Option) {
 		RaftHostPort: opt.Raft_Host_Port,
 	})
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 	//创建临时节点,用于zkserver的watch
 	err = s.zk.CreateState(s.Name)
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 
 	//连接zkServer，并将自己的Info发送到zkServer,
 	zkclient, err := zkserver_operations.NewClient(opt.Name, client.WithHostPorts(opt.Zkserver_Host_Port))
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 	s.zkclient = zkclient
 
@@ -145,7 +145,7 @@ func (s *Server) make(opt Options, opt_cli []server.Option) {
 		BrokerHostPort: opt.Broker_Host_Port,
 	})
 	if err != nil || !resp.Ret {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 
 	//开启获取管道中的内容，写入文件或更新leader
@@ -188,7 +188,7 @@ func (s *Server) BecomeLeader(in info) {
 		Partition: in.part_name,
 	})
 	if err != nil || !resp.Ret {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 }
 
@@ -202,7 +202,7 @@ func (s *Server) IntiBroker() {
 	}
 	data, err := json.Marshal(info)
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 
 	resp, err := s.zkclient.BroGetConfig(context.Background(), &api.BroGetConfigRequest{
@@ -210,7 +210,7 @@ func (s *Server) IntiBroker() {
 	})
 
 	if err != nil || !resp.Ret {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 	BroInfo := BroNodeInfo{
 		Topics: make(map[string]TopNodeInfo),
@@ -433,7 +433,7 @@ func (s *Server) AddFetchHandle(in info) (ret string, err error) {
 				option:     4, //PSB_PULL
 			}, &s.zkclient)
 			if err != nil {
-				logger.DEBUG(logger.DError, err.Error())
+				logger.DEBUG(logger.DError, "%v\n", err.Error())
 			}
 		}
 		return ret, err
@@ -444,7 +444,7 @@ func (s *Server) AddFetchHandle(in info) (ret string, err error) {
 		if !ok {
 			broker, err := server_operations.NewClient(s.Name, client.WithHostPorts(in.HostPort))
 			if err != nil {
-				logger.DEBUG(logger.DError, err.Error())
+				logger.DEBUG(logger.DError, "%v\n", err.Error())
 				return err.Error(), err
 			}
 			s.brokers_fetch[in.LeaderBroker] = &broker
@@ -591,7 +591,7 @@ func (s *Server) PushHandle(in info) (ret string, err error) {
 	}
 
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return err.Error(), err
 	}
 
@@ -629,13 +629,12 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 
 	//向LeaderBroker发起Pull请求
 	//获得本地本地当前文件end_index
-	File := topic.GetFile(in)
-	fd := File.OpenFile()
+	File, fd := topic.GetFile(in)
 	index := File.GetIndex(fd)
 	index += 1
 	// _, err := File.FindOffset(fd, index)
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return err.Error(), err
 	}
 
@@ -669,7 +668,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							BlockName: in.file_name[:num-4],
 						})
 						if err != nil {
-							logger.DEBUG(logger.DError, err.Error())
+							logger.DEBUG(logger.DError, "%v\n", err.Error())
 						}
 						s.mu.Lock()
 						_, ok := s.brokers_fetch[in.topic_name+in.part_name]
@@ -677,7 +676,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							logger.DEBUG(logger.DLog, "this broker(%v) is not connected\n")
 							leader_bro, err := server_operations.NewClient(s.Name, client.WithHostPorts(resp.HostPort))
 							if err != nil {
-								logger.DEBUG(logger.DError, err.Error())
+								logger.DEBUG(logger.DError, "%v\n", err.Error())
 								return
 							}
 							s.brokers_fetch[resp.LeaderBroker] = &leader_bro
@@ -733,7 +732,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 			topic, ok := s.topics[in.topic_name]
 			s.mu.RUnlock()
 			if !ok {
-				logger.DEBUG(logger.DError, err.Error())
+				logger.DEBUG(logger.DError, "%v\n", err.Error())
 			}
 			ice := 0
 			for {
@@ -765,7 +764,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							BlockName: "NowBlock",
 						})
 						if err != nil {
-							logger.DEBUG(logger.DError, err.Error())
+							logger.DEBUG(logger.DError, "%v\n", err.Error())
 						}
 						s.mu.Lock()
 						_, ok := s.brokers_fetch[in.topic_name+in.part_name]
@@ -773,7 +772,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							logger.DEBUG(logger.DLog, "this broker(%v) is not connected\n")
 							leader_bro, err := server_operations.NewClient(s.Name, client.WithHostPorts(resp.HostPort))
 							if err != nil {
-								logger.DEBUG(logger.DError, err.Error())
+								logger.DEBUG(logger.DError, "%v\n", err.Error())
 								return
 							}
 							s.brokers_fetch[resp.LeaderBroker] = &leader_bro
@@ -801,7 +800,7 @@ func (s *Server) FetchMsg(in info, cli *server_operations.Client, topic *Topic) 
 							file_name:  "NowBlock.txt",
 						})
 						if err != nil {
-							logger.DEBUG(logger.DError, err.Error())
+							logger.DEBUG(logger.DError, "%v\n", err.Error())
 						}
 					}
 					index++

@@ -91,7 +91,7 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 		cmdindex:   req.Cmdindex,
 	})
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 	}
 	return &api.PushResponse{
 		Ret: true,
@@ -107,12 +107,14 @@ func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.P
 		topic_name: req.Topic,
 		part_name:  req.Key,
 		size:       req.Size,
+		option:     req.Option,
+		offset:     req.Offset,
 	})
 	if err != nil {
 		if err == io.EOF && ret.size == 0 {
 			Err = "file EOF"
 		} else {
-			logger.DEBUG(logger.DError, err.Error())
+			logger.DEBUG(logger.DError, "%v\n", err.Error())
 			return &api.PullResponse{
 				Ret: false,
 			}, nil
@@ -266,7 +268,7 @@ func (s *RPCServer) ConStartGetBroker(ctx context.Context, req *api.ConStartGetB
 func (s *RPCServer) BroInfo(ctx context.Context, req *api.BroInfoRequest) (r *api.BroInfoResponse, err error) {
 	err = s.zkserver.HandleBroInfo(req.BrokerName, req.BrokerHostPort)
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return &api.BroInfoResponse{
 			Ret: false,
 		}, err
@@ -284,7 +286,7 @@ func (s *RPCServer) UpdatePTPOffset(ctx context.Context, req *api.UpdatePTPOffse
 		index:      req.Offset,
 	})
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return &api.UpdatePTPOffsetResponse{
 			Ret: false,
 		}, err
@@ -304,7 +306,7 @@ func (s *RPCServer) UpdateDup(ctx context.Context, req *api.UpdateDupRequest) (r
 		// leader:     req.Leader,
 	})
 	if err != nil {
-		logger.DEBUG(logger.DError, err.Error())
+		logger.DEBUG(logger.DError, "%v\n", err.Error())
 		return &api.UpdateDupResponse{
 			Ret: false,
 		}, err

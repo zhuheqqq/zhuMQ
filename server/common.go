@@ -66,11 +66,6 @@ type BrokerS struct {
 const (
 	ZKBROKER = "zkbroker"
 	BROKER   = "broker"
-
-	PTP_PUSH = 1
-	PTP_PULL = 2
-	PSB_PUSH = 3
-	PSB_PULL = 4
 )
 
 func GetIpport() string {
