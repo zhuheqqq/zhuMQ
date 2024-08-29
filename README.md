@@ -22,14 +22,12 @@ zhuMQ 使用 cloudwego 的 kitex 作为 rpc 框架，所以需要先安装 kitex
 - 拉取 zhuMQ
 ```
 git clone git@github.com:zhuheqqq/zhuMQ.git
-
 ```
 - 使用 kitex 生成 RPC 代码
 ```
 cd zhuMQ
 kitex -module zhuMQ operations.thrift 
 kitex -module zhuMQ raftoperations.thrift 
-
 ```
 
 接下来就可以开始在你的代码中使用 zhuMQ。
