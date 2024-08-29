@@ -242,6 +242,7 @@ type Info struct {
 	Topic  string
 	Part   string
 	Option int8
+	Size   int8
 	Bufs   map[int64]*api.PubRequest
 	Cli    *server_operations.Client
 }
