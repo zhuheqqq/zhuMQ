@@ -36,37 +36,13 @@ func NewBrokerAndStart(t *testing.T, zkinfo zookeeper.ZKInfo, opt Server.Options
 	return &rpcServer
 }
 
-func NewZKServerAndStart(t *testing.T, zkinfo zookeeper.ZKInfo, opt Server.Options) *Server.RPCServer {
-	//start the zookeeper server
-	addr_zks, _ := net.ResolveTCPAddr("tcp", opt.Zkserver_Host_Port)
-	var opts_zks []server.Option
-	opts_zks = append(opts_zks, server.WithServiceAddr(addr_zks))
-
-	rpcServer := Server.NewRpcServer(zkinfo)
-
-	go func() {
-		err := rpcServer.Start(nil, opts_zks, nil, opt)
-		if err != nil {
-			t.Log(err)
-		}
-	}()
-
-	return &rpcServer
-}
-
-func NewConsumerAndStart(t *testing.T, consumer_port, zkbroker, name string) *client3.Consumer {
-	fmt.Println("Start Consumser")
-
-	consumer, _ := client3.NewConsumer(zkbroker, name, consumer_port)
-	go consumer.Start_server()
-
-	return consumer
-}
-
 func NewProducerAndStart(t *testing.T, zkbroker, name string) *client3.Producer {
 	fmt.Println("Start Producer")
 
-	Producer, _ := client3.NewProducer(zkbroker, name)
+	Producer, err := client3.NewProducer(zkbroker, name)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	return Producer
 }
@@ -81,7 +57,7 @@ func StartBrokers(t *testing.T, numbers int) (brokers []*Server.RPCServer) {
 
 	index := 0
 	for index < numbers {
-		broker := NewBrokerAndStart(t, zookeeper.ZKInfo{
+		broker := Server.NewBrokerAndStart(zookeeper.ZKInfo{
 			HostPorts: zookeeper_port,
 			Timeout:   20,
 			Root:      "/ClyMQ",
@@ -105,7 +81,7 @@ func StartZKServer(t *testing.T) *Server.RPCServer {
 	fmt.Println("Start ZKServer")
 
 	zookeeper_port := []string{"127.0.0.1:2181"}
-	zkserver := NewZKServerAndStart(t, zookeeper.ZKInfo{
+	zkserver := Server.NewZKServerAndStart(zookeeper.ZKInfo{
 		HostPorts: zookeeper_port,
 		Timeout:   20,
 		Root:      "/ClyMQ",

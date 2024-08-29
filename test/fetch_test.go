@@ -2,44 +2,13 @@ package main
 
 import (
 	"fmt"
-	"zhuMQ/client/clients"
-
 	"testing"
 	"time"
+	"zhuMQ/client/clients"
 )
 
-func TestProducerCreate(t *testing.T) {
-
-	fmt.Println("Test: producer Create Topic and Partition")
-
-	zkServer := StartZKServer(t)
-	time.Sleep(1 * time.Second)
-
-	brokers := StartBrokers(t, 3)
-	time.Sleep(1 * time.Second)
-
-	producer := NewProducerAndStart(t, ":7878", "producer1")
-	time.Sleep(1 * time.Second)
-
-	fmt.Println("Producer Create a Topic")
-	err := producer.CreateTopic("phone_number")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	fmt.Println("Producer Create a Topic/Partition")
-	err = producer.CreatePart("phone_number", "xian")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	ShutDownBrokers(brokers)
-	ShutDownZKServer(zkServer)
-	fmt.Println("  ... Passed")
-}
-
-func TestProducerPush(t *testing.T) {
-	fmt.Println("Test: producer Push message to Partition")
+func TestFetch(t *testing.T) {
+	fmt.Println("Fetch: test producer fetch")
 
 	messages := []string{"18700619719", "1234567891",
 		"12345678911", "12345678912",
@@ -54,25 +23,25 @@ func TestProducerPush(t *testing.T) {
 	brokers := StartBrokers(t, 3)
 	time.Sleep(1 * time.Second)
 
-	producer := NewProducerAndStart(t, ":7878", "producer1")
+	producer := NewProducerAndStart(t, ":7878", "producer2")
 	time.Sleep(1 * time.Second)
 
-	//创建三个topic
+	//创建topic
 	fmt.Println("Producer Create a Topic")
 	err := producer.CreateTopic("phone_number")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	//每个topic创建三个partition
+	//每个topic创建partition
 	fmt.Println("Producer Create a Topic/Partition")
-	err = producer.CreatePart("phone_number", "xian")
+	err = producer.CreatePart("phone_number", "beijing")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	//将partition设置状态
-	err = producer.SetPartitionState("phone_number", "xian", -1, 3)
+	err = producer.SetPartitionState("phone_number", "beijing", 1, 3)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -83,9 +52,9 @@ func TestProducerPush(t *testing.T) {
 	for _, message := range messages {
 		err = producer.Push(clients.Message{
 			Topic_name: "phone_number",
-			Part_name:  "xian",
+			Part_name:  "beijing",
 			Msg:        []byte(message),
-		}, -1)
+		}, 1)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
