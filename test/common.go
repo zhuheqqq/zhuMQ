@@ -60,7 +60,7 @@ func StartBrokers(t *testing.T, numbers int) (brokers []*Server.RPCServer) {
 		broker := Server.NewBrokerAndStart(zookeeper.ZKInfo{
 			HostPorts: zookeeper_port,
 			Timeout:   20,
-			Root:      "/ClyMQ",
+			Root:      "/zhuMQ",
 		}, Server.Options{
 			Me:                 index,
 			Name:               "Broker" + strconv.Itoa(index),
@@ -84,7 +84,7 @@ func StartZKServer(t *testing.T) *Server.RPCServer {
 	zkserver := Server.NewZKServerAndStart(zookeeper.ZKInfo{
 		HostPorts: zookeeper_port,
 		Timeout:   20,
-		Root:      "/ClyMQ",
+		Root:      "/zhuMQ",
 	}, Server.Options{
 		Name:               "ZKServer",
 		Tag:                "zkbroker",
