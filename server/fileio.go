@@ -237,7 +237,8 @@ func (f *File) FindOffset(file *os.File, index int64) (int64, error) {
 			return int64(-1), errors.New("Read node size is not NODE_SIZE")
 		}
 		if err == io.EOF { //读到文件末尾
-			return index, errors.New("Read All file, do not find this index")
+			logger.DEBUG(logger.DLog, "read All file, do not find this index\n")
+			return index, io.EOF
 		}
 
 		buf := &bytes.Buffer{}
