@@ -1,12 +1,12 @@
 package main
 
 import (
-	"ClyMQ/kitex_gen/api"
-	"ClyMQ/kitex_gen/api/raft_operations"
-	Server "ClyMQ/server"
 	"context"
 	"fmt"
 	"time"
+	"zhuMQ/kitex_gen/api"
+	"zhuMQ/kitex_gen/api/raft_operations"
+	Server "zhuMQ/server"
 
 	"net"
 	"testing"

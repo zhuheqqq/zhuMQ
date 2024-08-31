@@ -515,7 +515,7 @@ func (z *ZK) GetDuplicateNodes(topic_name, part_name, block_name string) (nodes 
 	for _, dup_name := range Dups {
 		DupNode, err := z.GetDuplicateNode(BlockPath + "/" + dup_name)
 		if err != nil {
-			logger.DEBUG(logger.DError, "the dup %v/%vis not exits\n", BlockPath, dup_name
+			logger.DEBUG(logger.DError, "the dup %v/%vis not exits\n", BlockPath, dup_name)
 		} else {
 			nodes = append(nodes, DupNode)
 		}

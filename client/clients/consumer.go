@@ -27,6 +27,10 @@ type Consumer struct {
 	Brokers  map[string]*server_operations.Client
 }
 
+type Parts struct {
+	PartKeys []PartKey `json:"partkeys"`
+}
+
 func NewConsumer(zkbroker string, name string, port string) (*Consumer, error) {
 	C := Consumer{
 		mu:      sync.RWMutex{},
@@ -131,15 +135,12 @@ func (c *Consumer) StartGet(info Info) (partkeys []PartKey, ret string, err erro
 		return nil, ret, err
 	}
 
-	// broks := make([]BrokerInfo, resp.Size)
-	// json.Unmarshal(resp.Broks, &broks)
-
 	var parts Parts
 	err = json.Unmarshal(resp.Parts, &parts)
 	if err != nil {
 		return nil, "", err
 	}
-
+	logger.DEBUG(logger.DLog, "start get parts json is %v turn %v\n", resp.Parts, parts.PartKeys)
 	if info.Option == 1 || info.Option == 3 { //pub
 		ret, err = c.StartGetToBroker(parts.PartKeys, info)
 	}
