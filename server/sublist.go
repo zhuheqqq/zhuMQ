@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"os"
 	"sort"
@@ -262,8 +263,9 @@ func (t *Topic) PullMessage(in info) (MSGS, error) {
 	sub, ok := t.subList[sub_name]
 	t.rmu.RUnlock()
 	if !ok {
-		logger.DEBUG(logger.DError, "this topic(%v) is not have sub(%v) the sublist is %v\n", t.Name, sub_name, t.subList)
-		return MSGS{}, errors.New("this topic is not have this sub")
+		str := fmt.Sprintf("%v this topic(%v) is not have sub(%v) the sublist is %v for %v", t.Broker, t.Name, sub_name, t.subList, in.consumer)
+		logger.DEBUG(logger.DError, "%v\n", str)
+		return MSGS{}, errors.New(str)
 	}
 
 	return sub.PullMsgs(in)

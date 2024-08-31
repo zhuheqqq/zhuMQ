@@ -259,11 +259,25 @@ func (z *ZkServer) SetPartitionState(info Info_in) Info_out {
 
 			Dups, data_brokers = z.GetDupsFromConsist(info)
 
+			// 更新newblock中的leader
+			err = z.BecomeLeader(Info_in{
+				cli_name:   Dups[0].BrokerName,
+				topic_name: info.topic_name,
+				part_name:  info.part_name,
+			})
+
+			if err != nil {
+				logger.DEBUG(logger.DError, "%v\n", err.Error())
+				return Info_out{
+					Err: err,
+				}
+			}
+
 			//向这些broker发送信息，启动raft
 			for _, dupnode := range Dups {
 				bro_cli, ok := z.Brokers[dupnode.BrokerName]
 				if !ok {
-					logger.DEBUG(logger.DLog, "this partition(%v) leader broker is not connected\n", info.part_name)
+					logger.DEBUG(logger.DError, "this partition(%v) leader broker is not connected\n", info.part_name)
 				} else {
 					//开启raft集群
 					resp, err := bro_cli.AddRaftPartition(context.Background(), &api.AddRaftPartitionRequest{
@@ -828,6 +842,7 @@ func (z *ZkServer) GetNewLeader(info Info_in) (Info_out, error) {
 
 	var LeaderBroker zookeeper.BrokerNode
 	//需要检查Leader是否在线，若不在线需要更换leader
+	logger.DEBUG(logger.DLog, "zkserver checkout leader broker %v online?\n", BlockNode.LeaderBroker)
 	ret := z.zk.CheckBroker(BlockNode.LeaderBroker)
 	if ret {
 		LeaderBroker, err = z.zk.GetBrokerNode(BlockNode.LeaderBroker)

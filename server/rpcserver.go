@@ -99,65 +99,6 @@ func (s *RPCServer) Push(ctx context.Context, req *api.PushRequest) (resp *api.P
 	}, nil
 }
 
-// 处理来自consumer拉取请求
-func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.PullResponse, err error) {
-	Err := "ok"
-	ret, err := s.server.PullHandle(info{
-		consumer:   req.Consumer,
-		topic_name: req.Topic,
-		part_name:  req.Key,
-		size:       req.Size,
-		option:     req.Option,
-		offset:     req.Offset,
-	})
-	if err != nil {
-		if err == io.EOF && ret.size == 0 {
-			Err = "file EOF"
-		} else {
-			logger.DEBUG(logger.DError, "%v\n", err.Error())
-			return &api.PullResponse{
-				Ret: false,
-			}, nil
-		}
-	}
-
-	return &api.PullResponse{
-		Msgs:       ret.array,
-		StartIndex: ret.start_index,
-		EndIndex:   ret.end_index,
-		Size:       ret.size,
-		Err:        Err,
-	}, err
-}
-
-// consumer---->broker server
-func (s *RPCServer) ConInfo(ctx context.Context, req *api.InfoRequest) (resp *api.InfoResponse, err error) {
-	//get client_server's ip and port
-
-	err = s.server.InfoHandle(req.IpPort)
-	if err == nil {
-		return &api.InfoResponse{Ret: true}, nil
-	}
-
-	return &api.InfoResponse{Ret: false}, err
-}
-
-// consumer---->broker server
-func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (resp *api.InfoGetResponse, err error) {
-	err = s.server.StartGet(info{
-		consumer:   req.CliName,
-		topic_name: req.TopicName,
-		part_name:  req.PartName,
-		offset:     req.Offset,
-	})
-	if err == nil {
-		return &api.InfoGetResponse{
-			Ret: true,
-		}, nil
-	}
-	return &api.InfoGetResponse{Ret: false}, err
-}
-
 // 先在zookeeper上创建一个Topic，当生产该信息时，或消费信息时再有zkserver发送信息到broker让broker创建
 func (s *RPCServer) CreateTopic(ctx context.Context, req *api.CreateTopicRequest) (r *api.CreateTopicResponse, err error) {
 	info := s.zkserver.CreateTopic(Info_in{
@@ -177,6 +118,7 @@ func (s *RPCServer) CreateTopic(ctx context.Context, req *api.CreateTopicRequest
 	}, nil
 }
 
+// producer--->zkserver
 // 先在zookeeper上创建一个Partition，当生产该信息时，或消费信息时再有zkserver发送信息到broker
 // 让broker创建
 func (s *RPCServer) CreatePart(ctx context.Context, req *api.CreatePartRequest) (r *api.CreatePartResponse, err error) {
@@ -217,6 +159,7 @@ func (s *RPCServer) ProGetBroker(ctx context.Context, req *api.ProGetBrokRequest
 	}, nil
 }
 
+// producer--->zkserver
 func (s *RPCServer) SetPartitionState(ctx context.Context, req *api.SetPartitionStateRequest) (r *api.SetPartitionStateResponse, err error) {
 	info := s.zkserver.SetPartitionState(Info_in{
 		topic_name: req.Topic,
@@ -235,6 +178,66 @@ func (s *RPCServer) SetPartitionState(ctx context.Context, req *api.SetPartition
 	return &api.SetPartitionStateResponse{
 		Ret: true,
 		Err: "ok",
+	}, nil
+}
+
+// consumer---->broker server
+func (s *RPCServer) ConInfo(ctx context.Context, req *api.InfoRequest) (resp *api.InfoResponse, err error) {
+	//get client_server's ip and port
+
+	err = s.server.InfoHandle(req.IpPort)
+	if err == nil {
+		return &api.InfoResponse{Ret: true}, nil
+	}
+
+	return &api.InfoResponse{Ret: false}, err
+}
+
+// consumer---->broker server
+func (s *RPCServer) StarttoGet(ctx context.Context, req *api.InfoGetRequest) (resp *api.InfoGetResponse, err error) {
+	err = s.server.StartGet(info{
+		consumer:   req.CliName,
+		topic_name: req.TopicName,
+		part_name:  req.PartName,
+		offset:     req.Offset,
+	})
+
+	if err == nil {
+		return &api.InfoGetResponse{Ret: true}, nil
+	}
+
+	return &api.InfoGetResponse{Ret: false}, err
+}
+
+// consumer--->broker server
+func (s *RPCServer) Pull(ctx context.Context, req *api.PullRequest) (resp *api.PullResponse, err error) {
+	Err := "ok"
+	ret, err := s.server.PullHandle(info{
+		consumer:   req.Consumer,
+		topic_name: req.Topic,
+		part_name:  req.Key,
+		size:       req.Size,
+		option:     req.Option,
+		offset:     req.Offset,
+	})
+	if err != nil {
+		if err == io.EOF && ret.size == 0 {
+			Err = "file EOF"
+		} else {
+			logger.DEBUG(logger.DError, "%v\n", err.Error())
+			return &api.PullResponse{
+				Ret: false,
+				Err: err.Error(),
+			}, err
+		}
+	}
+
+	return &api.PullResponse{
+		Msgs:       ret.array,
+		StartIndex: ret.start_index,
+		EndIndex:   ret.end_index,
+		Size:       ret.size,
+		Err:        Err,
 	}, nil
 }
 
@@ -258,10 +261,6 @@ func (s *RPCServer) ConStartGetBroker(ctx context.Context, req *api.ConStartGetB
 		Parts: parts,
 	}, nil
 }
-
-//func (s *RPCServer) ConGetBroker(ctx context.Context, req *api.ConGetBrokRequest) (r *api.ConGetBrokResponse, err error) {
-//
-//}
 
 // broker---->zkserver
 // broker连接到zkserver后会立即发送info，让zkserver连接到broker
@@ -296,6 +295,7 @@ func (s *RPCServer) UpdatePTPOffset(ctx context.Context, req *api.UpdatePTPOffse
 	}, nil
 }
 
+// broker---->zkserver
 func (s *RPCServer) UpdateDup(ctx context.Context, req *api.UpdateDupRequest) (r *api.UpdateDupResponse, err error) {
 	err = s.zkserver.UpdateDupNode(Info_in{
 		topic_name: req.Topic,
@@ -434,6 +434,7 @@ func (s *RPCServer) BecomeLeader(ctx context.Context, req *api.BecomeLeaderReque
 	}
 }
 
+// consumer and producer -----> zkserver
 func (s *RPCServer) GetNewLeader(ctx context.Context, req *api.GetNewLeaderRequest) (r *api.GetNewLeaderResponse, err error) {
 	info, err := s.zkserver.GetNewLeader(Info_in{
 		topic_name: req.TopicName,
